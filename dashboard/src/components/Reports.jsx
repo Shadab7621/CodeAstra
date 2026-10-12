@@ -23,6 +23,26 @@ function cartItem(description) {
   try { return JSON.parse(description.slice(CART_PREFIX.length)); } catch { return null; }
 }
 
+const DURABILITY_RANK = { local: 0, replicated: 1, confirmed: 2 };
+
+/**
+ * One row per product. Every "Add to cart" is its own record, so the same product added in two
+ * regions while apart arrives as two records. Quantities add up, so no add is lost, and every
+ * region shows the same row once it holds the same records.
+ */
+function mergeLines(cartLines) {
+  const byProduct = new Map();
+  for (const { report, item } of cartLines) {
+    const row = byProduct.get(item.sku) || { sku: item.sku, item, quantity: 0, adds: 0, ids: [], durability: 'confirmed' };
+    row.quantity += report.severity;
+    row.adds += 1;
+    row.ids.push(report.report_id);
+    if ((DURABILITY_RANK[report.durability] ?? 0) < DURABILITY_RANK[row.durability]) row.durability = report.durability;
+    byProduct.set(item.sku, row);
+  }
+  return [...byProduct.values()];
+}
+
 const money = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
 
 function ProductArtwork({ kind }) {
@@ -230,6 +250,7 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
   const cartLines = reports?.map((report) => ({ report, item: cartItem(report.description) }))
     .filter(({ item }) => item) || [];
   const itemCount = cartLines.reduce((sum, { report }) => sum + report.severity, 0);
+  const cartRows = mergeLines(cartLines);
 
   // Briefly highlight rows that changed since the last poll.
   useEffect(() => {
@@ -283,20 +304,22 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
             </thead>
             <tbody>
               <AnimatePresence initial={false}>
-                {cartLines.map(({ report: r, item }) => (
+                {cartRows.map(({ sku, item, quantity, adds, ids, durability }) => (
                   <motion.tr
-                    key={r.report_id} layout
+                    key={sku} layout
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className={`cart-line ${flash[r.report_id] ? 'flash' : ''}`}
+                    className={`cart-line ${ids.some((id) => flash[id]) ? 'flash' : ''}`}
                   >
                     <td className="cart-item-cell">
                       <div className="cart-item-name">{item.name}</div>
-                      <div className="cart-item-meta">{item.category}</div>
+                      <div className="cart-item-meta">
+                        {item.category}{adds > 1 ? ` · ${adds} adds combined` : ''}
+                      </div>
                     </td>
                     <td className="cart-number">{money(item.price)}</td>
-                    <td><span className="cart-quantity">{r.severity}</span></td>
-                    <td className="cart-number cart-line-total">{money(item.price * r.severity)}</td>
-                    <td><Durability value={r.durability} /></td>
+                    <td><span className="cart-quantity">{quantity}</span></td>
+                    <td className="cart-number cart-line-total">{money(item.price * quantity)}</td>
+                    <td><Durability value={durability} /></td>
                   </motion.tr>
                 ))}
               </AnimatePresence>
