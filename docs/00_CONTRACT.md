@@ -208,6 +208,17 @@ these endpoints require the HTTP header `X-Admin-Token: <token>` and otherwise r
 - Both audit endpoints are read-only and need no token. Events written before this version are
   counted as `legacy_events` and are not rejected.
 
+### 3.10 Dashboard served by the node, and browser-readable refusals (v1.5)
+
+- `GET /cluster` returns `{ node_id, nodes: {id: url} }`: where every node of the cluster can be
+  reached. Open, read-only.
+- If the built dashboard is present (`dashboard/dist`, or the folder in `DASHBOARD_DIR`), a node
+  serves it at `/ui/`, and `/` redirects there. A dashboard opened this way on a cloud server
+  configures itself from `/cluster`.
+- `/ui`, `/` and `/cluster` keep answering while a node is paused, so the console stays usable.
+- Fix: `401` and `503` responses now carry cross-origin headers. Before, a browser could not read
+  them and reported a network error, so a paused node looked unreachable.
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.

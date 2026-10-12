@@ -8,6 +8,8 @@ COPY engine/requirements.txt engine/requirements.txt
 RUN pip install --no-cache-dir -r engine/requirements.txt
 
 COPY engine engine
+# The built dashboard, served by the node at /ui (see engine/app/main.py).
+COPY dashboard/dist dashboard/dist
 
 # The database lives in /data so it can be a volume and survive container restarts.
 RUN useradd --create-home app && mkdir -p /data && chown app:app /data

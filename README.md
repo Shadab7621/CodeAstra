@@ -63,11 +63,20 @@ python -m http.server 4173 --directory dashboard\dist         # serve the dashbo
 # open http://127.0.0.1:4173
 ```
 
+Every node also serves the dashboard itself at `/ui/`. Locally that is
+`http://127.0.0.1:8001/ui/`. On a cloud server it is `http://<server-address>:8001/ui/`, which
+opens on any phone or laptop and finds the other regions on its own.
+
 To change it: `cd dashboard`, `npm install`, `npm run dev` (hot reload), then `npm run build`.
+After a rebuild, cloud servers pick it up with `python infra\aws_cluster.py up ...` (replaces the
+instances) and `python infra\azure_cluster.py update sin` (in place).
 
 - **Overview**: regions, records, conflict ledger and history check, with an Engine / Baseline switch.
 - **Infrastructure**: the live deployment. Provider zones (AWS, Azure), each server's machine type,
   address, round-trip latency, chain head, and the replication links between regions.
+- **Live tests**: the terminal smoke test, run from the browser against the selected cluster
+  (local, or AWS and Azure). Twelve checks with timings, non-destructive, while the topology
+  animates. On the cloud it needs the admin token in Settings.
 - **Compare**: the same link failure run on our engine and on the last-writer-wins baseline.
 - A **Local / Cloud** switch chooses which cluster the console talks to.
 - Cut and restore links, simulate a crash or a fast clock, create and edit records, decide conflicts,

@@ -38,8 +38,12 @@ async function request(base, path, { method = 'GET', body, token } = {}) {
 const post = (base, path, body, token) => request(base, path, { method: 'POST', body: body ?? {}, token });
 
 export const api = {
+  health: (b) => request(b, '/healthz'),
   status: (b) => request(b, '/status'),
   reports: (b) => request(b, '/reports'),
+  report: (b, id) => request(b, `/reports/${id}`),
+  syncNow: (b, t) => post(b, '/admin/sync-now', {}, t),
+  cluster: (b) => request(b, '/cluster'),
   conflicts: (b) => request(b, '/conflicts'),
   heads: (b) => request(b, '/audit/heads'),
   verify: (b) => request(b, '/audit/verify'),

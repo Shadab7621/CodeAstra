@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convergence Preview</title>
+<style>
+  :root { --bg:#0b1020; --panel:#141b30; --line:#2a3555; --text:#e8ecf5; --muted:#9aa6c4;
+          --teal:#45bba0; --red:#f06a72; --amber:#f2c14e; --green:#6bd98f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 "Segoe UI", Arial, sans-serif; }
+  main { max-width:1200px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { margin:0 0 4px; font-size:28px; }
+  .sub { color:var(--muted); margin:0 0 24px; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+  button { background:var(--teal); color:#06231c; border:0; border-radius:8px; padding:12px 22px;
+           font-size:16px; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .chip { display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; font-weight:700; color:#0b1020; }
+  .live { background:var(--green); } .cache { background:var(--amber); } .err { background:var(--red); }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; margin-bottom:20px; }
+  h2 { margin:0 0 4px; font-size:20px; }
+  .host { color:var(--muted); font-size:13px; margin-bottom:12px; word-break:break-all; }
+  .msg { color:var(--red); }
+  .note { color:var(--amber); margin-bottom:16px; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--teal); white-space:nowrap; }
+  td pre { margin:0; white-space:pre-wrap; word-break:break-word; font:12px/1.4 Consolas, monospace; color:var(--muted); }
+  details { margin-top:12px; } summary { cursor:pointer; color:var(--muted); }
+  pre.raw { background:#0b1020; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; max-height:360px; font-size:12px; }
+  .empty { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Convergence Preview</h1>
+  <p class="sub">Incident data from the web team's API. Read-only preview: nothing is saved to or synced by DisasterSync.</p>
+  <div class="bar">
+    <button id="go">Fetch incidents</button>
+    <span id="state"></span>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+// Finds the list of records inside any JSON shape: an array, or the first array found in an object.
+function recordsOf(data) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    for (const v of Object.values(data)) if (Array.isArray(v)) return v;
+    return [data];
+  }
+  return [];
+}
+function cell(v) {
+  if (v === null || v === undefined) return '<span class="empty">-</span>';
+  if (typeof v === "object") return "<pre>" + esc(JSON.stringify(v, null, 1)) + "</pre>";
+  return esc(v);
+}
+function table(rows) {
+  if (!rows.length) return '<p class="empty">No records returned.</p>';
+  const cols = [];
+  for (const r of rows) for (const k of Object.keys(r && typeof r === "object" ? r : { value: r }))
+    if (!cols.includes(k)) cols.push(k);
+  const head = cols.map((c) => `<th>${esc(c)}</th>`).join("");
+  const body = rows.map((r) => {
+    const o = r && typeof r === "object" ? r : { value: r };
+    return "<tr>" + cols.map((c) => `<td>${cell(o[c])}</td>`).join("") + "</tr>";
+  }).join("");
+  return `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function block(title, host, r) {
+  let html = `<section><h2>${esc(title)}</h2><div class="host">${esc(host || "URL not set")}</div>`;
+  if (!r.ok) {
+    html += `<p class="msg">${esc(r.error || "Failed")}</p>`;
+  } else {
+    const rows = recordsOf(r.data);
+    html += `<p class="sub">${rows.length} record(s)</p>` + table(rows);
+  }
+  if (r.data !== undefined)
+    html += `<details><summary>Raw JSON</summary><pre class="raw">${esc(JSON.stringify(r.data, null, 2))}</pre></details>`;
+  return html + "</section>";
+}
+
+let hosts = {};
+fetch("/api/config").then((r) => r.json()).then((h) => { hosts = h; }).catch(() => {});
+
+$("go").addEventListener("click", async () => {
+  $("go").disabled = true;
+  $("state").innerHTML = "Fetching...";
+  try {
+    const res = await fetch("/api/fetch", { method: "POST" });
+    const d = await res.json();
+    const failed = !d.all.ok && !d.latest.ok;
+    const chip = d.source === "cache" ? '<span class="chip cache">Showing last saved copy</span>'
+               : failed ? '<span class="chip err">Unavailable</span>' : '<span class="chip live">Live</span>';
+    $("state").innerHTML = chip + ` <span class="sub">fetched ${esc(new Date(d.fetched_at).toLocaleTimeString())}</span>`;
+    let html = "";
+    if (d.source === "cache")
+      html += `<p class="note">The web team's API could not be reached, so this is the copy fetched at ${esc(new Date(d.cached_from).toLocaleString())}.</p>`;
+    html += block("Latest incident", hosts.latest, d.latest) + block("All incidents", hosts.all, d.all);
+    $("out").innerHTML = html;
+  } catch (e) {
+    $("state").innerHTML = '<span class="chip err">Preview server not reachable</span>';
+  } finally {
+    $("go").disabled = false;
+  }
+});
+</script>
+</body>
+</html>

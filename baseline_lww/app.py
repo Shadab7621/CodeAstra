@@ -137,14 +137,15 @@ def create_app(node_id: Optional[str] = None, peers: Optional[dict] = None,
 
     app = FastAPI(title=f"Baseline (last-writer-wins) node {node_id}", lifespan=lifespan)
     app.state.node = node
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
-                       allow_headers=["*"])
-
     @app.middleware("http")
     async def pause_gate(request: Request, call_next):
         if node.paused and request.url.path not in ("/healthz", "/admin/resume"):
             return JSONResponse(status_code=503, content={"error": "paused"})
         return await call_next(request)
+
+    # Added after the gate so it wraps it: a browser must be able to read the 503.
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+                       allow_headers=["*"])
 
     def error(status, code, message):
         raise HTTPException(status_code=status, detail={"error": code, "message": message})

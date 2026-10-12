@@ -35,7 +35,15 @@ async function readNode(base) {
       heads: heads ? heads.heads : null,
     };
   } catch (err) {
-    return { state: err.status === 503 ? 'paused' : 'down', error: err.message };
+    if (err.status === 503) return { state: 'paused', error: err.message };
+    // A paused node still answers its health check. Older servers sent the 503 without
+    // cross-origin headers, so the browser saw a network error; this tells the two apart.
+    try {
+      await api.health(base);
+      return { state: 'paused', error: 'Paused' };
+    } catch {
+      return { state: 'down', error: err.message };
+    }
   }
 }
 

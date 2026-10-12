@@ -36,6 +36,7 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
         options={[
           { value: 'overview', label: 'Overview' },
           { value: 'infrastructure', label: 'Infrastructure' },
+          { value: 'tests', label: 'Live tests' },
           { value: 'compare', label: 'Compare', disabled: cloud, title: cloud ? 'The comparison runs on the local clusters' : undefined },
         ]}
       />

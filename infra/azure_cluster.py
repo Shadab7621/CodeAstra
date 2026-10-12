@@ -3,6 +3,7 @@
     python infra/azure_cluster.py up sin --public --peer mum=http://13.200.213.148:8001 --peer hyd=...
     python infra/azure_cluster.py status
     python infra/azure_cluster.py logs sin
+    python infra/azure_cluster.py update sin          pull new code and restart, same address and data
     python infra/azure_cluster.py down
 
 Typical mixed-cloud layout: mum and hyd on AWS, sin on Azure (Southeast Asia, i.e. Singapore).
@@ -157,6 +158,36 @@ def logs(node):
           or "(no boot log yet)")
 
 
+# Rebuilds the container from the latest code, keeping the node's settings, address and data.
+UPDATE_SCRIPT = r"""set -e
+cd /opt/app
+git pull -q
+docker build -q -f engine/Dockerfile -t codeastra-engine .
+ENVFILE=$(mktemp)
+docker inspect node --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | grep -E '^(NODE_ID|PORT|PEERS|MODE|DB_PATH|ADMIN_TOKEN)=' > "$ENVFILE"
+PORT=$(grep '^PORT=' "$ENVFILE" | cut -d= -f2)
+docker rm -f node
+docker run -d --name node --restart unless-stopped -p "$PORT:$PORT" -v codeastra-data:/data \
+  --env-file "$ENVFILE" codeastra-engine
+rm -f "$ENVFILE"
+sleep 8
+curl -s -m 5 "http://127.0.0.1:$PORT/healthz" && echo " node is healthy" || echo " node did not answer"
+"""
+
+
+def update(node):
+    """Pull the newest code onto the existing server and restart the node. No port is touched."""
+    with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False, newline="\n") as f:
+        f.write(UPDATE_SCRIPT)
+    print(f"{node}: updating in place (takes a minute or two) ...")
+    result = az("vm", "run-command", "invoke", "-g", group(node), "-n", f"codeastra-{node}",
+                "--command-id", "RunShellScript", "--scripts", f"@{f.name}",
+                "--query", "value[0].message", "--output", "tsv")
+    tail = [l for l in result.stdout.replace("\r", "").split("\n") if l.strip()][-6:]
+    print("\n".join(l.encode("ascii", "replace").decode() for l in tail))
+
+
 def down():
     for node in NODES:
         rg = group(node)
@@ -189,6 +220,8 @@ def main():
         status()
     elif cmd == "logs" and len(args) == 1 and args[0] in NODES:
         logs(args[0])
+    elif cmd == "update" and len(args) == 1 and args[0] in NODES:
+        update(args[0])
     elif cmd == "down":
         down()
     else:

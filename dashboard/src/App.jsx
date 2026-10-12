@@ -3,15 +3,17 @@ import { AnimatePresence, motion } from 'motion/react';
 import Compare from './components/Compare';
 import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
+import LiveTests from './components/LiveTests';
 import Overview from './components/Overview';
 import Settings from './components/Settings';
 import { ToastProvider } from './components/Toast';
 import TopBar from './components/TopBar';
-import { environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken } from './config';
+import { api } from './api';
+import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken } from './config';
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'compare'];
+const VIEWS = ['overview', 'infrastructure', 'tests', 'compare'];
 
 // A hash such as #overview, #infrastructure or #compare opens the console directly.
 function fromHash() {
@@ -39,6 +41,22 @@ export default function App() {
       .then((r) => (r.ok ? r.json() : null))
       .then(setResults)
       .catch(() => setResults(null));
+  }, []);
+
+  // When a cloud server serves this page itself (at /ui), ask it where its peers are and
+  // open on the cloud cluster, so a visitor needs no setup at all.
+  useEffect(() => {
+    const host = window.location.hostname;
+    const onThisComputer = host === 'localhost' || host === '127.0.0.1';
+    if (!window.location.pathname.startsWith('/ui') || onThisComputer) return; // local nodes are not cloud
+    api.cluster(window.location.origin)
+      .then((c) => {
+        if (c && c.nodes && NODES.every((n) => typeof c.nodes[n] === 'string')) {
+          setCloudUrls(c.nodes);
+          setEnv('cloud');
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const envs = environments(cloudUrls);
@@ -95,6 +113,9 @@ export default function App() {
                     )}
                     {view === 'infrastructure' && (
                       <Infrastructure urls={current.engine} meta={meta} token={token} env={env} />
+                    )}
+                    {view === 'tests' && (
+                      <LiveTests urls={current.engine} meta={meta} token={token} env={env} />
                     )}
                     {view === 'overview' && (
                       <Overview

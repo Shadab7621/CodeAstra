@@ -178,6 +178,48 @@ def test_token_protects_admin_sync_and_operator_endpoints():
         "Access-Control-Request-Headers": "x-admin-token"}).status_code == 200
 
 
+def test_refusals_are_readable_by_a_browser():
+    """A 401 or 503 must carry the cross-origin header, or a browser sees only a network error
+    and the dashboard cannot tell 'refused' or 'paused' from 'unreachable'."""
+    app = create_app(Config(node_id="mum", port=8001, db_path=":memory:", admin_token="s3cret"))
+    c = TestClient(app)
+    origin = {"Origin": "http://127.0.0.1:4173"}
+
+    refused = c.post("/admin/pause", headers=origin)
+    assert refused.status_code == 401
+    assert refused.headers.get("access-control-allow-origin") == "*"
+
+    c.post("/admin/pause", headers={"X-Admin-Token": "s3cret"})
+    paused = c.get("/status", headers=origin)
+    assert paused.status_code == 503
+    assert paused.headers.get("access-control-allow-origin") == "*"
+
+
+def test_cluster_endpoint_lists_every_node():
+    app = create_app(Config(node_id="mum", port=8001, db_path=":memory:",
+                            peers=["hyd=http://10.0.0.2:8002", "sin=http://10.0.0.3:8003"]),
+                     start_sync=False)
+    c = TestClient(app, base_url="http://10.0.0.1:8001")
+    body = c.get("/cluster").json()
+    assert body["node_id"] == "mum"
+    assert body["nodes"] == {"mum": "http://10.0.0.1:8001", "hyd": "http://10.0.0.2:8002",
+                             "sin": "http://10.0.0.3:8003"}
+
+
+def test_node_serves_the_dashboard_when_built(tmp_path, monkeypatch):
+    ui = tmp_path / "dist"
+    ui.mkdir()
+    (ui / "index.html").write_text("<!doctype html><title>dash</title>")
+    monkeypatch.setenv("DASHBOARD_DIR", str(ui))
+    c = TestClient(create_app(Config(node_id="mum", port=8001, db_path=":memory:")))
+    assert "dash" in c.get("/ui/").text
+    assert c.get("/", follow_redirects=False).headers["location"] == "/ui/"
+    c.post("/admin/pause")
+    assert c.get("/ui/").status_code == 200      # the console stays reachable when a node is paused
+    assert c.get("/cluster").status_code == 200
+    assert c.get("/reports").status_code == 503
+
+
 def test_no_token_configured_means_open(client):
     assert client.post("/admin/clock", json={"offset_ms": 1}).status_code == 200
 

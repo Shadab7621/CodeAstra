@@ -3,12 +3,14 @@
 .env
 data/
 results/
-dashboard/
 docs/
+dashboard/node_modules
+dashboard/src
+dashboard/public
 **/__pycache__
 **/*.pyc
 .pytest_cache
 *.db
 *.csv
 *.exe
-*.png
+/image.png

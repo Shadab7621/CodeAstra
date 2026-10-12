@@ -3,6 +3,7 @@
 Run a node with:  uvicorn engine.app.main:create_app --factory --port 8001
 """
 import hmac
+import os
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -10,7 +11,8 @@ from typing import Callable, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import VALID_NODES, Config
 from .hlc import HLC, HybridClock
@@ -114,10 +116,6 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
     app = FastAPI(title=f"CodeAstra node {config.node_id}", lifespan=lifespan)
     app.state.node = state
 
-    app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
-    )
-
     def needs_token(path: str) -> bool:
         """Sensitive endpoints: fault injection, node-to-node sync and operator decisions.
         Creating and reading reports stays open, so anyone can report an incident."""
@@ -136,12 +134,19 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
                     content={"error": "unauthorized",
                              "message": "missing or wrong X-Admin-Token header"},
                 )
-        if state.paused and path not in ("/healthz", "/admin/resume"):
+        open_while_paused = path in ("/healthz", "/admin/resume", "/", "/cluster") or path.startswith("/ui")
+        if state.paused and not open_while_paused:
             return JSONResponse(
                 status_code=503,
                 content={"error": "paused", "message": "node is paused (simulated crash)"},
             )
         return await call_next(request)
+
+    # Added after the gate so it wraps it: a 401 or 503 produced by the gate must still carry
+    # the cross-origin headers, or a browser cannot read the status and reports a network error.
+    app.add_middleware(
+        CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    )
 
     def error(status: int, code: str, message: str):
         raise HTTPException(status_code=status, detail={"error": code, "message": message})
@@ -157,6 +162,25 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
     @app.get("/healthz")
     def healthz():
         return {"ok": True}
+
+    @app.get("/cluster")
+    def cluster(request: Request):
+        """Where every node of this cluster can be reached. Lets a dashboard served by one
+        node find the others without any configuration."""
+        nodes = {config.node_id: str(request.base_url).rstrip("/")}
+        for peer in state.sync.peers:
+            if peer.id:
+                nodes[peer.id] = peer.url
+        return {"node_id": config.node_id, "nodes": nodes}
+
+    # The dashboard, if its built files are present, is served by the node itself at /ui.
+    ui_dir = os.getenv("DASHBOARD_DIR", "dashboard/dist")
+    if os.path.isdir(ui_dir):
+        app.mount("/ui", StaticFiles(directory=ui_dir, html=True), name="ui")
+
+        @app.get("/", include_in_schema=False)
+        def root():
+            return RedirectResponse("/ui/")
 
     @app.get("/status")
     def status():
