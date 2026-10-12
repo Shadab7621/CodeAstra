@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { api } from '../api';
 import { NODES } from '../config';
@@ -54,12 +54,11 @@ const RESULT = {
   lost: { cls: 'bad', text: 'Silently lost' },
 };
 
-function Benchmark({ results }) {
-  if (!results) return null;
-  const o = results.systems.ours;
-  const b = results.systems.lww_baseline;
-  const max = Math.max(o.silent_overwrites_pct, b.silent_overwrites_pct, 1);
-  const Bar = ({ label, pct, tone }) => (
+// Defined at module level on purpose. Declared inside Benchmark, React saw a brand-new component
+// on every render (this page re-renders each second as the clusters are polled), remounted it,
+// and the count-up restarted from zero forever.
+function Bar({ label, pct, tone, max }) {
+  return (
     <div style={{ display: 'grid', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'baseline' }}>
         <span>{label}</span>
@@ -74,11 +73,19 @@ function Benchmark({ results }) {
       </div>
     </div>
   );
+}
+
+// Only redraws when the results themselves change, not on every poll of the clusters.
+const Benchmark = memo(function Benchmark({ results }) {
+  if (!results) return null;
+  const o = results.systems.ours;
+  const b = results.systems.lww_baseline;
+  const max = Math.max(o.silent_overwrites_pct, b.silent_overwrites_pct, 1);
   return (
     <Panel title="Measured over many failures" hint={`${results.runs} randomised trials per system: ${results.setup}`}>
       <div className="stack" style={{ gap: 18 }}>
-        <Bar label="Acknowledged edits silently lost by the last-writer-wins baseline" pct={b.silent_overwrites_pct} tone="bad" />
-        <Bar label="Acknowledged edits silently lost by our engine" pct={o.silent_overwrites_pct} tone="ok" />
+        <Bar label="Acknowledged edits silently lost by the last-writer-wins baseline" pct={b.silent_overwrites_pct} tone="bad" max={max} />
+        <Bar label="Acknowledged edits silently lost by our engine" pct={o.silent_overwrites_pct} tone="ok" max={max} />
         <div className="table-wrap" style={{ margin: '0 -20px -20px' }}>
           <table>
             <thead><tr><th>Failure scenario</th><th>Engine passed</th><th>Baseline passed</th></tr></thead>
@@ -96,7 +103,7 @@ function Benchmark({ results }) {
       </div>
     </Panel>
   );
-}
+});
 
 export default function Compare({ engineUrls, baselineUrls, results }) {
   const toast = useToast();

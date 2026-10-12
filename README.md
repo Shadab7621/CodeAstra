@@ -48,6 +48,11 @@ $env:ADMIN_TOKEN  = (Get-Content infra\.admin_token).Trim()
 python infra\smoke_test.py
 ```
 
+After replacing a node, its `epoch` starts at 0 while the others may be higher (every
+`/admin/reset` raises it by one). Nodes on different epochs refuse to sync, so the dashboard shows
+`epoch mismatch`. If the replaced node is empty, reset it until the epochs match; it then copies
+everything from its peers. Never reset a node that holds data you need.
+
 The token (`infra\.admin_token`) is created on first deploy and is git-ignored. It protects
 `/admin/*`, `/sync` and conflict resolution; creating and reading reports stays open.
 Three small instances cost about three cents an hour, so run `down` when you are finished.
