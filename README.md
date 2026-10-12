@@ -73,7 +73,23 @@ curl http://127.0.0.1:8001/audit/verify     # recompute a node's whole chain
 curl http://127.0.0.1:8001/audit/heads      # compare newest hashes across nodes
 ```
 
-## Mixed cloud (AWS + Google Cloud)
+## Mixed cloud (AWS + Azure, verified)
+
+Mumbai and Hyderabad on AWS, Singapore on Azure. Run in this order:
+
+```powershell
+az login --tenant <tenant-id>                # one time
+python infra\azure_cluster.py up sin --public --peer mum=http://<mum-ip>:8001 --peer hyd=http://<hyd-ip>:8002
+python infra\aws_cluster.py remove sin       # only if Singapore was on AWS before
+python infra\aws_cluster.py up --public --peer sin=http://<azure-ip>:8003 mum hyd
+python infra\azure_cluster.py status         # and: aws_cluster.py status
+python infra\azure_cluster.py down           # remove the Azure side
+```
+
+Student subscriptions allow few regions and VM sizes; `azure_cluster.py` tries sizes in order and
+picks the matching x86 or ARM image.
+
+## Mixed cloud (AWS + Google Cloud, script only)
 
 The same Docker image runs on either provider, and nodes find each other by public address.
 For example, Mumbai and Hyderabad on AWS and Singapore on Google Cloud:

@@ -77,10 +77,10 @@
   <div class="sub">A multi-region report service that keeps accepting data when the network breaks,
     merges safely when it returns, and tells operators exactly what is at risk.</div>
   <div class="stats">
-    <div class="stat"><b>3</b><span>replicas live on AWS (Mumbai, Hyderabad, Singapore)</span></div>
+    <div class="stat"><b>3</b><span>replicas on two clouds: AWS (Mumbai, Hyderabad) and Azure (Singapore)</span></div>
     <div class="stat"><b>72</b><span>automated tests passing</span></div>
     <div class="stat"><b>0%</b><span>edits silently lost, vs 42% for last-writer-wins (100 trials each)</span></div>
-    <div class="stat"><b>&lt;1 s</b><span>to converge after healing, across 3 AWS regions</span></div>
+    <div class="stat"><b>&lt;1 s</b><span>to converge after healing, across AWS and Azure</span></div>
   </div>
   <div class="meta">
     Project report for judges and mentors &middot; 12 October 2026<br>
@@ -112,8 +112,9 @@ network returns, or <b>accept writes and silently overwrite</b> whichever edit h
 <p>The replication engine is built and verified: three nodes replicate, survive partitions, crashes and
 wrong clocks, and converge to identical state. It runs in Docker and is deployed as three servers on AWS
 (Mumbai, Hyderabad, Singapore), where the full partition, heal and crash-recovery scenario passes 12 of 12
-checks. The comparison benchmark against a last-writer-wins baseline is complete (section 9). The operator
-dashboard and a run of the mixed AWS and Google Cloud deployment are the remaining work.</p>
+checks, and it has also been run across two providers (AWS Mumbai and Hyderabad plus Azure Singapore) with the same
+result. The comparison benchmark against a last-writer-wins baseline is complete (section 9). The operator
+dashboard is the remaining work.</p>
 </section>
 
 <!-- ===================== 2. PROBLEM ===================== -->
@@ -303,7 +304,7 @@ verification that general-purpose tools do not provide.</p>
   <tr><td><b>Built-in proof</b></td><td>A chaos tester runs random partitions, crashes and clock skew, then asserts convergence and zero lost writes, and compares against a last-writer-wins baseline.</td></tr>
   <tr><td><b>Safe reset across nodes</b></td><td>Epoch numbers prevent old data reappearing after a cluster reset, a real operational trap.</td></tr>
   <tr><td><b>Tamper-evident history</b></td><td>Each event is hash-chained to the previous one from the same node. Editing, deleting or forging a stored event is detectable by recomputing the chain, and a replica refuses forged events from a peer, then recovers from an honest one. AWS retired its ledger database, QLDB, in July 2025, so this fills a gap rather than repeating a product.</td></tr>
-  <tr><td><b>Independent of any one provider</b></td><td>Nothing depends on a managed database, so the same image runs on AWS and Google Cloud and a whole-provider outage cannot take all replicas down. Managed services cannot replicate across clouds, and consensus databases cannot write on the minority side of a partition.</td></tr>
+  <tr><td><b>Independent of any one provider</b></td><td>Nothing depends on a managed database, so the same image runs on AWS and on Azure (verified, including different CPU types) and a whole-provider outage cannot take all replicas down. Managed services cannot replicate across clouds, and consensus databases cannot write on the minority side of a partition.</td></tr>
 </table>
 </section>
 
@@ -318,7 +319,7 @@ verification that general-purpose tools do not provide.</p>
   <tr><td>Node-to-node calls</td><td>httpx</td><td>Simple HTTP, easy to block and inspect in tests</td></tr>
   <tr><td>Tests</td><td>pytest</td><td>Unit, multi-node and random-fault tests</td></tr>
   <tr><td>Packaging</td><td>Docker and Compose</td><td>One command for teammates; same image locally and in the cloud</td></tr>
-  <tr><td>Cloud</td><td>AWS EC2 in three regions (deployed)</td><td>Real geographic separation. One small instance per region, created and removed by one script, all resources tagged for clean teardown</td></tr>
+  <tr><td>Cloud</td><td>AWS EC2 (Mumbai, Hyderabad) and an Azure VM (Singapore), deployed</td><td>Real geographic and provider separation. One small instance per node, created and removed by a script per provider, everything tagged for clean teardown</td></tr>
   <tr><td>Access control</td><td>Shared-secret header on admin, sync and operator endpoints</td><td>Lets the nodes be reachable from any network while fault injection and operator decisions stay protected; reporting and reading stay open</td></tr>
   <tr><td>Dashboard</td><td>Web single-page app</td><td>Shows regions, reports, conflicts and fault controls</td></tr>
 </table>
@@ -343,7 +344,8 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>AWS three-region deployment</td><td class="ok">Done</td><td>Mumbai, Hyderabad and Singapore; 12 of 12 checks across the real regions</td></tr>
   <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="ok">Done</td><td>100 trials per system, 5 scenarios, results file and charts generated</td></tr>
   <tr><td>Tamper-evident hash-chained log and audit endpoints</td><td class="ok">Done</td><td>10 tests; live tamper demo detects an edit made behind the app</td></tr>
-  <tr><td>Google Cloud deployment script</td><td class="warn">Prepared</td><td>Written and syntax-checked; not yet run against a real project</td></tr>
+  <tr><td>Mixed-cloud deployment: AWS (Mumbai, Hyderabad) + Azure (Singapore)</td><td class="ok">Done</td><td>12 of 12 smoke-test checks across both providers; identical hash-chain heads on all three nodes</td></tr>
+  <tr><td>Google Cloud deployment script</td><td class="warn">Prepared</td><td>Written and syntax-checked; not run (the trial billing account had closed)</td></tr>
   <tr><td>Operator dashboard</td><td class="warn">In progress</td><td>Assigned to a teammate; built against the API contract</td></tr>
 </table>
 
@@ -357,6 +359,7 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Report reaches "confirmed" everywhere</td><td>about 0.5 s</td><td>0.29 s</td></tr>
   <tr><td>Convergence after a partition heals</td><td>0.2 to 0.35 s</td><td>0.56 s</td></tr>
   <tr><td>Crashed node catches up after resuming</td><td>0.1 to 0.3 s</td><td>0.40 s</td></tr>
+  <tr><td>Mixed cloud (AWS Mumbai, AWS Hyderabad, Azure Singapore): smoke test</td><td colspan="2">12 of 12 passed; report visible in another region in 0.28 s, confirmed everywhere in 0.44 s, converged after healing in 0.77 s, crashed node caught up in 0.12 s</td></tr>
 </table>
 
 <div class="avoid">
@@ -430,7 +433,7 @@ comparison is like for like.</p>
   <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td class="ok">Done: smoke test passes against containers</td></tr>
   <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>All</td><td>Dashboard drives the real cluster</td></tr>
   <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Engine / infra</td><td class="ok">Done: results file and charts produced</td></tr>
-  <tr><td>4</td><td>Deploy three nodes to AWS regions</td><td>Engine / infra</td><td class="ok">Done: partition and heal verified across regions</td></tr>
+  <tr><td>4</td><td>Deploy to AWS regions and a second cloud (Azure)</td><td>Engine / infra</td><td class="ok">Done: partition and heal verified across both providers</td></tr>
   <tr><td>5</td><td>Rehearse the demo twice, with a laptop-only fallback</td><td>All</td><td>Runs without venue Wi-Fi</td></tr>
   <tr><td>6</td><td>Feature freeze, final report and slides</td><td>All</td><td>Submission ready</td></tr>
 </table>
@@ -452,7 +455,8 @@ comparison is like for like.</p>
   <tr><td>Not load tested</td><td>SQLite per node and three nodes only. The prototype proves behaviour under faults, not throughput.</td></tr>
   <tr><td>The baseline is our model, not the products</td><td>It follows how DynamoDB Global Tables and Cosmos DB behave by default, but the real services were not benchmarked. The report says so wherever the numbers appear.</td></tr>
   <tr><td>Tamper evidence is not tamper proofing</td><td>An administrator can still change a node's database. The change is detectable, but only by comparing against other replicas or an earlier head hash; the chain is not signed.</td></tr>
-  <tr><td>Google Cloud deployment not yet exercised</td><td>The script is written and checked for syntax; the mixed AWS and Google Cloud run is pending a Google Cloud project.</td></tr>
+  <tr><td>Google Cloud script not exercised</td><td>The two-provider claim rests on AWS plus Azure, which was run and verified. The Google Cloud script is written but was not run, because the available trial billing account had closed.</td></tr>
+  <tr><td>One cluster run, not a long-term soak</td><td>The cross-cloud test was a single run on a small cluster, so it shows behaviour, not long-duration reliability.</td></tr>
   <tr><td>Urgent-first catch-up sync</td><td>Not built: it conflicts with the in-order rule that keeps conflict detection correct. We do not claim it.</td></tr>
 </table>
 </section>
