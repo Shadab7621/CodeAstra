@@ -5,8 +5,7 @@ import { PIPELINE, STACK } from '../infra';
 import { offsetLabel, shortHash } from '../lib';
 import { ReadOnlyNotice, useClusterActions } from './ClusterView';
 import Panel, { Card } from './Panel';
-import { PAIRS, ProviderBadge, allLinks, linkState, nodeHealth, syncSummary } from './Regions';
-import Topology from './Topology';
+import { ProviderBadge, allLinks, nodeHealth, syncSummary } from './Regions';
 
 function StatTile({ label, value, foot, delay }) {
   return (
@@ -262,58 +261,6 @@ export default function Infrastructure({ urls, meta, token, env, onOpenLogs }) {
         <StatTile delay={0.15} label="Events replicated" value={events} foot="Hash-chained records held in SQLite" />
       </div>
 
-      <Panel
-        title="Topology & Signal Network"
-        hint="Interactive SVG network graph. Click on any curved signal line or center badge to cut or restore the connection, or click a region to open its log."
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {anyCut && (
-              <button
-                className="btn btn-sm btn-primary"
-                disabled={!canAct}
-                onClick={actions.healAll}
-              >
-                Heal All Links
-              </button>
-            )}
-            <span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>
-              {summary.text}
-            </span>
-          </div>
-        }
-      >
-        <Topology
-          nodes={nodes}
-          links={links}
-          meta={meta}
-          onToggleLink={canAct ? actions.toggleLink : undefined}
-          onSelectNode={onOpenLogs}
-        />
-
-        <div className="link-quick-strip">
-          <span style={{ fontSize: '12px', fontWeight: 650, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px' }}>
-            Direct Links:
-          </span>
-          {PAIRS.map(([a, b]) => {
-            const st = linkState(nodes, a, b);
-            const isCut = st === 'cut';
-            return (
-              <button
-                key={`${a}-${b}`}
-                className={`link-chip ${isCut ? 'cut' : ''}`}
-                disabled={!canAct || st === 'unknown'}
-                onClick={() => actions.toggleLink(a, b, st)}
-              >
-                <span className={`dot ${isCut ? 'bad' : st === 'ok' ? 'ok' : ''}`} />
-                {REGION[a].name} ↔ {REGION[b].name}
-                <span className="muted">
-                  {isCut ? 'Cut (click to restore)' : st === 'ok' ? 'Connected (click to cut)' : 'Unavailable'}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Panel>
 
       <div className="grid-3">
         {NODES.map((id) => (

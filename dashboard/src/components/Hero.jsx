@@ -8,7 +8,7 @@ import CountUp from '../reactbits/CountUp';
 import GradientText from '../reactbits/GradientText';
 import ShinyText from '../reactbits/ShinyText';
 import StarBorder from '../reactbits/StarBorder';
-import { Arrow, Mark, Moon, Sun } from './Icons';
+import { Arrow, Moon, Sun } from './Icons';
 import { Card } from './Panel';
 import Topology from './Topology';
 
@@ -80,7 +80,7 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
       </div>
 
       <nav className="hero-nav">
-        <span className="brand"><Mark className="brand-mark" />DisasterSync</span>
+        <span className="brand"><img src="/logo.png" alt="DisasterSync" className="brand-mark" />DisasterSync</span>
         <div className="hero-links">
           <button onClick={() => onEnter('overview')}>Console</button>
           <button onClick={() => onEnter('infrastructure')}>Infrastructure</button>
