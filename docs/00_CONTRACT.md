@@ -151,6 +151,27 @@ These are additive: nothing in the original contract changed.
 - The engine's state hash covers the merged reports AND the set of event ids, so equal hashes
   mean the nodes hold the same events and merged them identically.
 
+### 3.7 Additions made with the sync protocol (v1.2)
+
+Also additive.
+
+- `PEERS` uses `id=url` pairs: `PEERS="hyd=http://host:8002,sin=http://host:8003"`.
+- `GET /status` has a top-level `epoch`, and each peer row also has `reason` and `blocked`.
+  `reason` is `null` when reachable, otherwise one of `blocked`, `paused`, `self_paused`,
+  `unreachable`, `epoch_mismatch`, `never_contacted`, `not_configured`.
+- **Reset and epochs (important for B).** `POST /admin/reset` wipes the node and raises its
+  `epoch` by one. Nodes only sync with peers on the same epoch. So to reset a cluster, just
+  call reset on all three nodes in any order: a node that is already wiped will not get old
+  data copied back from one that is not wiped yet. Resetting only one node leaves it
+  isolated (`epoch_mismatch`) until the others are reset too.
+- `POST /admin/sync-now` returns `{ ok, peers: [{ id, reachable, reason, applied }] }`.
+- `POST /sync` is the node-to-node endpoint. B's baseline and C's dashboard never call it.
+- A report's `durability` is `confirmed` only when every other node is known to hold ALL of
+  that report's events, and `replicated` when at least one other node does.
+- After a node with a fast clock has synced, the other nodes' logical clocks move forward to
+  match it. `last_updated.wall` can therefore be ahead of real time. Ordering stays correct;
+  do not display `wall` as a real timestamp (use the event's `client_ts`).
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.

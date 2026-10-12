@@ -49,6 +49,12 @@ class ResolveBody(BaseModel):
     operator: str = Field(min_length=1, max_length=100)
 
 
+class SyncBody(BaseModel):
+    sender: str
+    epoch: int
+    vv: dict[str, int]
+
+
 class ClockBody(BaseModel):
     offset_ms: int
 

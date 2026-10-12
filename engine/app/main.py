@@ -1,27 +1,28 @@
 """Engine node: FastAPI app implementing docs/00_CONTRACT.md section 5.
 
-Built so far: health/status, reports (create, patch, merged views, history), conflict ledger
-with operator resolve, event ids, state hash, admin fault flags.
-Coming next: sync between nodes, durability, peer reachability.
+Run a node with:  uvicorn engine.app.main:create_app --factory --port 8001
 """
+import threading
 import uuid
-from typing import Optional
+from contextlib import asynccontextmanager
+from typing import Callable, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import VALID_NODES, Config
-from .hlc import HybridClock
+from .hlc import HLC, HybridClock
 from .merge import STATUS_ORDER, merge_all, state_hash
-from .models import ClockBody, PeerBody, ReportCreate, ReportPatch, ResolveBody
+from .models import ClockBody, PeerBody, ReportCreate, ReportPatch, ResolveBody, SyncBody
 from .store import EventStore
+from .sync import SyncManager
 
 
 class NodeState:
     """Everything one running node holds in memory."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, post: Optional[Callable] = None):
         self.config = config
         self.store = EventStore(config.node_id, config.db_path)
         self.clock = HybridClock(config.node_id)
@@ -30,16 +31,33 @@ class NodeState:
             self.clock.observe(newest)  # after a restart, keep stamping forwards
         self.paused = False
         self.blocked: set[str] = set()  # peer node ids we refuse to talk to
+        self.lock = threading.RLock()   # guards reset against incoming events
         self._view = None
+        self.sync = SyncManager(self, post)
 
-    def view(self) -> tuple[list[dict], list[dict], str]:
-        """(reports, conflicts, state hash), recomputed only when the event log changed."""
+    @property
+    def epoch(self) -> int:
+        """Number of resets. Nodes only sync with peers on the same epoch, so resetting the
+        cluster one node at a time cannot copy old data back into a node already wiped."""
+        return self.store.epoch
+
+    def view(self) -> tuple[list[dict], list[dict], str, dict]:
+        """(reports, conflicts, state hash, needs), recomputed only when the event log changed.
+
+        needs maps report_id -> {origin: highest seq}: what a peer must hold to have the
+        whole report."""
         version = self.store.version
         if self._view is None or self._view[0] != version:
-            reports, conflicts = merge_all(self.store.events_by_report())
+            by_report = self.store.events_by_report()
+            reports, conflicts = merge_all(by_report)
             digest = state_hash(reports, self.store.event_ids())
-            self._view = (version, reports, conflicts, digest)
-        return self._view[1], self._view[2], self._view[3]
+            needs = {}
+            for report_id, events in by_report.items():
+                top = needs[report_id] = {}
+                for e in events:
+                    top[e["origin"]] = max(top.get(e["origin"], 0), e["seq"])
+            self._view = (version, reports, conflicts, digest, needs)
+        return self._view[1], self._view[2], self._view[3], self._view[4]
 
     def report(self, report_id: str) -> Optional[dict]:
         return next((r for r in self.view()[0] if r["report_id"] == report_id), None)
@@ -47,11 +65,52 @@ class NodeState:
     def conflict(self, conflict_id: str) -> Optional[dict]:
         return next((c for c in self.view()[1] if c["conflict_id"] == conflict_id), None)
 
+    def durability(self, report_id: str) -> str:
+        """local / replicated / confirmed, from what peers have told us they hold."""
+        copies = self.sync.copies(self.view()[3].get(report_id, {}))
+        if copies and copies >= len(self.sync.peers):
+            return "confirmed"
+        return "replicated" if copies else "local"
 
-def create_app(config: Optional[Config] = None) -> FastAPI:
+    def apply_remote(self, events: list[dict], epoch: int) -> int:
+        """Store events received from a peer. Per origin they must arrive in order with no
+        gaps; anything else is skipped and fetched again on the next round."""
+        with self.lock:
+            if epoch != self.epoch:
+                return 0  # we were reset while the request was in flight
+            have = self.store.version_vector()
+            applied = 0
+            for e in sorted(events, key=lambda e: (e["origin"], e["seq"])):
+                if e["seq"] != have.get(e["origin"], 0) + 1:
+                    continue
+                if self.store.insert_remote(e):
+                    self.clock.observe(HLC.from_dict(e["hlc"]))
+                    have[e["origin"]] = e["seq"]
+                    applied += 1
+            return applied
+
+    def reset(self) -> None:
+        with self.lock:
+            self.store.reset()
+            self.blocked.clear()
+            self.clock.offset_ms = 0
+            self.sync.forget()
+
+
+def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
+               start_sync: bool = True) -> FastAPI:
+    """post and start_sync let tests wire nodes together without real sockets or timers."""
     config = config or Config.from_env()
-    state = NodeState(config)
-    app = FastAPI(title=f"CodeAstra node {config.node_id}")
+    state = NodeState(config, post)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        if start_sync:
+            state.sync.start()
+        yield
+        state.sync.stop()
+
+    app = FastAPI(title=f"CodeAstra node {config.node_id}", lifespan=lifespan)
     app.state.node = state
 
     app.add_middleware(
@@ -85,19 +144,15 @@ def create_app(config: Optional[Config] = None) -> FastAPI:
 
     @app.get("/status")
     def status():
-        peers = [
-            {"id": n, "reachable": False, "last_sync_ms_ago": None,
-             "pending_out": 0, "pending_in": 0, "blocked": n in state.blocked}
-            for n in VALID_NODES if n != config.node_id
-        ]
         return {
             "node_id": config.node_id,
             "mode": config.mode,
+            "epoch": state.epoch,
             "clock_offset_ms": state.clock.offset_ms,
             "paused": state.paused,
             "event_count": state.store.event_count(),
             "state_hash": state.view()[2],
-            "peers": peers,
+            "peers": state.sync.peer_status(),
         }
 
     @app.get("/state-hash")
@@ -111,10 +166,17 @@ def create_app(config: Optional[Config] = None) -> FastAPI:
             return {"node_id": config.node_id, "event_ids": state.store.event_ids()}
         return {"node_id": config.node_id, "events": state.store.all_events()}
 
+    # ---- replication (node to node) ------------------------------------------------------
+
+    @app.post("/sync")
+    def sync(body: SyncBody):
+        code, payload = state.sync.handle_request(body.sender, body.epoch, body.vv)
+        return JSONResponse(status_code=code, content=payload)
+
     # ---- reports -------------------------------------------------------------------------
 
     def present(report: dict) -> dict:
-        return {**report, "durability": "local"}  # real durability arrives with sync
+        return {**report, "durability": state.durability(report["report_id"])}
 
     @app.get("/reports")
     def list_reports():
@@ -232,16 +294,11 @@ def create_app(config: Optional[Config] = None) -> FastAPI:
 
     @app.post("/admin/reset")
     def reset():
-        state.store.reset()
-        state.blocked.clear()
-        state.clock.offset_ms = 0
-        return {"ok": True}
+        state.reset()
+        return {"ok": True, "epoch": state.epoch}
 
     @app.post("/admin/sync-now")
     def sync_now():
-        return {"ok": True, "note": "sync loop arrives in the next chunk"}
+        return {"ok": True, "peers": state.sync.sync_all()}
 
     return app
-
-
-# Run a node with:  uvicorn engine.app.main:create_app --factory --port 8001

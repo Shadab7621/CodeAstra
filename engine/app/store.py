@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS events (
     UNIQUE (origin, seq)
 );
 CREATE INDEX IF NOT EXISTS idx_events_report ON events (report_id);
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
 
@@ -48,6 +49,8 @@ class EventStore:
         self._db_path = db_path
         self._conn = self._connect()
         self.version = 0  # bumped on every change; lets callers cache the merged view
+        row = self._conn.execute("SELECT value FROM meta WHERE key = 'epoch'").fetchone()
+        self.epoch = int(row["value"]) if row else 0  # counts resets; survives restarts
 
     def _connect(self) -> sqlite3.Connection:
         if self._db_path != ":memory:":
@@ -99,14 +102,23 @@ class EventStore:
             ).fetchone()
             return row is not None
 
-    def events_after(self, origin: str, after_seq: int) -> list[dict]:
-        """Events from one origin newer than after_seq. Used by the sync protocol."""
+    def events_missing_from(self, vv: dict, limit: int) -> list[dict]:
+        """Events a peer with version vector `vv` does not have yet, oldest first per origin.
+
+        Capped at `limit`; because each origin is sent in seq order, a capped reply is still a
+        gap-free prefix and the peer simply asks again."""
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM events WHERE origin = ? AND seq > ? ORDER BY seq",
-                (origin, after_seq),
-            )
-            return [_row_to_event(r) for r in rows]
+            out: list[dict] = []
+            for origin, top in sorted(self.version_vector().items()):
+                have = int(vv.get(origin, 0))
+                if top <= have or len(out) >= limit:
+                    continue
+                rows = self._conn.execute(
+                    "SELECT * FROM events WHERE origin = ? AND seq > ? ORDER BY seq LIMIT ?",
+                    (origin, have, limit - len(out)),
+                )
+                out.extend(_row_to_event(r) for r in rows)
+            return out
 
     def events_by_report(self) -> dict[str, list[dict]]:
         grouped: dict[str, list[dict]] = {}
@@ -174,5 +186,11 @@ class EventStore:
         """Wipe everything. Tests only (POST /admin/reset)."""
         with self._lock:
             self._conn.execute("DELETE FROM events")
+            self._conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('epoch', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (str(self.epoch + 1),),
+            )
             self._conn.commit()
+            self.epoch += 1
             self.version += 1
