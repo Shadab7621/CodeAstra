@@ -20,8 +20,8 @@ export const DEFAULT_CLOUD = {
   sin: 'http://4.193.189.41:8003',
 };
 
-const CLOUD_KEY = 'codeastra.cloud';
-const TOKEN_KEY = 'codeastra.token';
+const CLOUD_KEY = 'disastersync.cloud';
+const TOKEN_KEY = 'disastersync.token';
 
 export function loadCloudUrls() {
   try {

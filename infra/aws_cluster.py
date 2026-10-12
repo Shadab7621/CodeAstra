@@ -107,7 +107,7 @@ def ensure_security_group(client):
     if groups:
         return groups[0]["GroupId"]
     return client.create_security_group(
-        GroupName=SG_NAME, Description="CodeAstra engine node", VpcId=vpc_id,
+        GroupName=SG_NAME, Description="DisasterSync engine node", VpcId=vpc_id,
         TagSpecifications=[{"ResourceType": "security-group", "Tags": TAGS}])["GroupId"]
 
 
@@ -145,7 +145,7 @@ curl -s -m 5 http://127.0.0.1:{port}/healthz && echo "DIAG local healthcheck ok"
 
 
 def up(nodes, public=False, extra_peers=None):
-    """extra_peers: {node id: url} for nodes that run elsewhere, e.g. on Google Cloud."""
+    """extra_peers: {node id: url} for nodes that run elsewhere, e.g. on Azure."""
     extra_peers = extra_peers or {}
     token = admin_token()
     if public:

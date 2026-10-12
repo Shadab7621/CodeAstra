@@ -9,7 +9,7 @@
 
   <!-- Title -->
   <text x="40" y="58" font-size="42" font-weight="700" fill="#0f172a">Disaster reports that survive a network failure</text>
-  <text x="40" y="96" font-size="23" fill="#475569">CodeAstra 2.0 · Cloud Computing &amp; Distributed Systems · Geo-distributed replication with graceful degradation</text>
+  <text x="40" y="96" font-size="23" fill="#475569">DisasterSync · CodeAstra 2.0 · Cloud Computing &amp; Distributed Systems · Geo-distributed replication with graceful degradation</text>
 
   <!-- ============ BAND 1: normal ============ -->
   <rect x="20" y="120" width="1880" height="280" rx="14" fill="#eff6ff" stroke="#bfdbfe"/>

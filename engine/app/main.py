@@ -113,7 +113,7 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
         yield
         state.sync.stop()
 
-    app = FastAPI(title=f"CodeAstra node {config.node_id}", lifespan=lifespan)
+    app = FastAPI(title=f"DisasterSync node {config.node_id}", lifespan=lifespan)
     app.state.node = state
 
     def needs_token(path: str) -> bool:

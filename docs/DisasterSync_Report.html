@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>CodeAstra 2.0 - Project Report</title>
+<title>DisasterSync - Project Report</title>
 <style>
   @page { size: A4; margin: 13mm 14mm 13mm 14mm; }
   @page wide { size: A4 landscape; margin: 10mm; }
@@ -74,7 +74,7 @@
 
 <!-- ===================== COVER ===================== -->
 <section class="cover">
-  <div class="tag">CODEASTRA 2.0 &middot; CLOUD COMPUTING &amp; DISTRIBUTED SYSTEMS</div>
+  <div class="tag">DISASTERSYNC &middot; CODEASTRA 2.0 &middot; CLOUD COMPUTING &amp; DISTRIBUTED SYSTEMS</div>
   <h1>Geo-Distributed Disaster Data Replication with Graceful Degradation</h1>
   <div class="sub">A multi-region report service that keeps accepting data when the network breaks,
     merges safely when it returns, and tells operators exactly what is at risk.</div>
@@ -103,7 +103,7 @@ network returns, or <b>accept writes and silently overwrite</b> whichever edit h
   <li><b>Tell the truth</b> about safety: every report is marked <i>local</i>, <i>replicated</i> or <i>confirmed</i>.</li>
   <li><b>Prove history is intact.</b> Every event is hash-chained, so editing, deleting or forging a stored event is detectable, and a replica rejects forged events from a bad peer.</li>
   <li><b>Prove it with numbers.</b> In 100 fault-injection trials per system, last-writer-wins silently lost 42.2% of acknowledged edits; our engine lost 0%.</li>
-  <li><b>Stay provider-independent.</b> No managed database service is used, so the same nodes can run on AWS and Google Cloud and survive a whole-provider failure.</li>
+  <li><b>Stay provider-independent.</b> No managed database service is used, so the same nodes run on AWS and Azure together and survive a whole-provider failure.</li>
 </ul>
 <div class="callout green">
   <b>One-sentence pitch.</b> Cloud providers move data between regions; we make that replication
@@ -281,7 +281,7 @@ research; <span class="warn">general knowledge</span> means widely known but not
       <td class="ok">verified (secondary sources)</td></tr>
   <tr><td><b>Cross-cloud replication</b></td>
       <td>Distributed SQL such as CockroachDB spans clouds; common practice is active-passive</td>
-      <td>No managed service offers active-active across AWS and Google Cloud that stays writable on the minority side of a partition; consensus systems need a majority</td>
+      <td>No managed service offers active-active replication across cloud providers that stays writable on the minority side of a partition; consensus systems need a majority</td>
       <td class="warn">search found no counter-example</td></tr>
 </table>
 <div class="callout">
@@ -347,7 +347,6 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="ok">Done</td><td>100 trials per system, 5 scenarios, results file and charts generated</td></tr>
   <tr><td>Tamper-evident hash-chained log and audit endpoints</td><td class="ok">Done</td><td>10 tests; live tamper demo detects an edit made behind the app</td></tr>
   <tr><td>Mixed-cloud deployment: AWS (Mumbai, Hyderabad) + Azure (Singapore)</td><td class="ok">Done</td><td>12 of 12 smoke-test checks across both providers; identical hash-chain heads on all three nodes</td></tr>
-  <tr><td>Google Cloud deployment script</td><td class="warn">Prepared</td><td>Written and syntax-checked; not run (the trial billing account had closed)</td></tr>
   <tr><td>Operator dashboard (React, light and dark theme)</td><td class="ok">Done</td><td>Regions, reports, conflict ledger, hash-chain check, and a side-by-side scenario against the baseline; exercised in a real browser against both clusters</td></tr>
 </table>
 
@@ -457,7 +456,6 @@ comparison is like for like.</p>
   <tr><td>Not load tested</td><td>SQLite per node and three nodes only. The prototype proves behaviour under faults, not throughput.</td></tr>
   <tr><td>The baseline is our model, not the products</td><td>It follows how DynamoDB Global Tables and Cosmos DB behave by default, but the real services were not benchmarked. The report says so wherever the numbers appear.</td></tr>
   <tr><td>Tamper evidence is not tamper proofing</td><td>An administrator can still change a node's database. The change is detectable, but only by comparing against other replicas or an earlier head hash; the chain is not signed.</td></tr>
-  <tr><td>Google Cloud script not exercised</td><td>The two-provider claim rests on AWS plus Azure, which was run and verified. The Google Cloud script is written but was not run, because the available trial billing account had closed.</td></tr>
   <tr><td>One cluster run, not a long-term soak</td><td>The cross-cloud test was a single run on a small cluster, so it shows behaviour, not long-duration reliability.</td></tr>
   <tr><td>Urgent-first catch-up sync</td><td>Not built: it conflicts with the in-order rule that keeps conflict detection correct. We do not claim it.</td></tr>
 </table>

@@ -1,6 +1,10 @@
-# CodeAstra
+# DisasterSync
 
-Cloud computing project on AWS.
+A replicated data service that keeps accepting writes when the link between regions breaks, then
+merges every region back to one state with nothing silently lost, a visible conflict ledger, and a
+hash-chained history that shows tampering. Runs on AWS and Azure.
+
+Built for CodeAstra 2.0, Cloud Computing and Distributed Systems.
 
 ## Setup
 
@@ -130,22 +134,6 @@ python infra\azure_cluster.py down           # remove the Azure side
 
 Student subscriptions allow few regions and VM sizes; `azure_cluster.py` tries sizes in order and
 picks the matching x86 or ARM image.
-
-## Mixed cloud (AWS + Google Cloud, script only)
-
-The same Docker image runs on either provider, and nodes find each other by public address.
-For example, Mumbai and Hyderabad on AWS and Singapore on Google Cloud:
-
-```powershell
-# one-time on the Google side: gcloud auth login ; gcloud config set project <id>
-python infra\gcp_cluster.py ip sin                         # reserve Singapore's address
-python infra\aws_cluster.py up --public --peer sin=http://<gcp-ip>:8003 mum hyd
-python infra\gcp_cluster.py up sin --peer mum=http://<mum-ip>:8001 --peer hyd=http://<hyd-ip>:8002
-python infra\gcp_cluster.py status                         # and: aws_cluster.py status
-python infra\gcp_cluster.py down                           # stop the Google side
-```
-
-`infra\gcp_cluster.py` has not yet been run against a real Google Cloud project.
 
 ## Run the engine locally (without Docker)
 
