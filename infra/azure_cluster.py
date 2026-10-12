@@ -17,6 +17,7 @@ Student subscriptions allow only a few regions; the defaults below are ones that
 No SSH port is opened. The node port is open to everyone and protected by the admin token.
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -32,10 +33,19 @@ NODES = {  # node id -> (azure region, port). Only sin is a true Singapore locat
     "mum": ("uaenorth", 8001),        # nearest allowed region to Mumbai on a student plan
     "hyd": ("koreacentral", 8002),
 }
-# Tried in order until one is available to the subscription in that region.
-FALLBACK_SIZES = ["Standard_B1s", "Standard_B2s", "Standard_B1ms", "Standard_B2ats_v2",
-                  "Standard_B2ts_v2", "Standard_D2s_v3", "Standard_D2as_v5", "Standard_D2s_v5"]
-IMAGE = "Canonical:ubuntu-24_04-lts:server:latest"
+# Tried in order until one is available to the subscription in that region. A student
+# subscription in southeastasia was found to allow only ARM sizes (the "p" ones), so those
+# come first; the engine image is multi-architecture and runs on both.
+FALLBACK_SIZES = ["Standard_B2pts_v2", "Standard_B2pls_v2", "Standard_B2ps_v2",
+                  "Standard_B1s", "Standard_B2s", "Standard_B1ms", "Standard_B2ats_v2",
+                  "Standard_D2s_v3", "Standard_D2as_v5"]
+IMAGE_X86 = "Canonical:ubuntu-24_04-lts:server:latest"
+IMAGE_ARM = "Canonical:ubuntu-24_04-lts:server-arm64:latest"
+
+
+def image_for(size: str) -> str:
+    """ARM sizes (Standard_B2pts_v2, D2ps_v5, ...) need the arm64 image."""
+    return IMAGE_ARM if re.match(r"Standard_[A-Za-z]+\d+p", size) else IMAGE_X86
 AZ = shutil.which("az") or r"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
 
 
@@ -96,7 +106,8 @@ def up(node, peers, size):
     chosen = None
     for candidate in ([size] if size else FALLBACK_SIZES):
         print(f"{node}: trying size {candidate} ...")
-        result = az("vm", "create", "-g", rg, "-n", vm, "--location", region, "--image", IMAGE,
+        result = az("vm", "create", "-g", rg, "-n", vm, "--location", region,
+                    "--image", image_for(candidate),
                     "--size", candidate, "--public-ip-address", f"{vm}-ip",
                     "--admin-username", "azureuser", "--generate-ssh-keys",
                     "--nsg-rule", "NONE", "--custom-data", f.name,
