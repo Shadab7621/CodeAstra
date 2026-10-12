@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Gear, Mark, Moon, Sun } from './Icons';
+import { Gear, Moon, Sun } from './Icons';
 
 export function Segmented({ id, value, options, onChange, label }) {
   return (
@@ -28,7 +28,7 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
     <header className="topbar">
       <div className="topbar-left">
         <button className="brand" onClick={onHome} aria-label="Back to the landing page">
-          <Mark className="brand-mark" />
+          <img src="/logo.png" alt="DisasterSync" className="brand-mark" />
           <span className="brand-name">DisasterSync</span>
         </button>
       </div>

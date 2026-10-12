@@ -145,10 +145,10 @@ h1, h2, h3, p { margin: 0; }
   background: none; border: 0; padding: 0; color: var(--text); cursor: pointer;
 }
 .brand-mark {
-  width: 28px; height: 28px; padding: 5px; border-radius: 8px;
-  background: #0f172a; color: #ffffff; display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 8px;
+  object-fit: contain; display: block;
 }
-[data-theme="dark"] .brand-mark { background: #ffffff; color: #090d16; }
+[data-theme="dark"] .brand-mark { filter: brightness(1.15); }
 .brand-name { color: var(--text); }
 
 .seg {
