@@ -10,20 +10,20 @@ const CARD_STYLE = {
 };
 
 export function Card({ children, className = '', style, ...rest }) {
-  const theme = useThemeName();
   return (
-    <SpotlightCard
-      theme={theme}
+    <div
       className={`card ${className}`}
-      spotlightColor={theme === 'dark' ? '#8ea0ff' : '#4f5bff'}
-      intensity={theme === 'dark' ? 0.14 : 0.5}
-      spotlightSize={300}
-      borderGlow={0.7}
-      style={{ ...CARD_STYLE, ...style }}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        boxShadow: 'var(--card-shadow)',
+        ...style,
+      }}
       {...rest}
     >
       {children}
-    </SpotlightCard>
+    </div>
   );
 }
 

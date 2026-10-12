@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { api } from '../api';
 import { NODES, REGION } from '../config';
-import { Cart, Close } from './Icons';
+import { Arrow, Cart, Check, Close } from './Icons';
 import Panel, { Portal } from './Panel';
 import { useToast } from './Toast';
 import { Segmented } from './TopBar';
@@ -34,7 +34,7 @@ function ProductArtwork({ kind }) {
     bottle: <><path d="M10 3h4v3l2 2v12a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V8l2-2z" /><path d="M9 12h6M10 3h4" /></>,
     kit: <><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M9 8V5h6v3M12 11v6M9 14h6" /></>,
   };
-  return <span className={`product-art art-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{drawings[kind]}</svg></span>;
+  return <span className={`product-art art-${kind}`} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{drawings[kind]}</svg></span>;
 }
 
 function Durability({ value }) {
@@ -48,19 +48,26 @@ function AddToCart({ base, region, cartLines, onClose }) {
   const toast = useToast();
   const [quantities, setQuantities] = useState({});
   const [busySku, setBusySku] = useState('');
+  const [addedSku, setAddedSku] = useState('');
   const [added, setAdded] = useState({ count: 0, total: 0 });
   const [startingCart] = useState(() => ({
     count: cartLines.reduce((sum, { report }) => sum + report.severity, 0),
     total: cartLines.reduce((sum, { report, item }) => sum + item.price * report.severity, 0),
   }));
 
+  const updateQty = (sku, delta) => {
+    setQuantities((prev) => {
+      const cur = prev[sku] || 1;
+      const next = Math.max(1, Math.min(10, cur + delta));
+      return { ...prev, [sku]: next };
+    });
+  };
+
   const addProduct = async (product) => {
     const quantity = Number(quantities[product.sku] || 1);
     setBusySku(product.sku);
     try {
       await api.create(base, {
-        // Each cart line is its own immutable event, so concurrent adds merge without
-        // overwriting another region's cart update.
         incident_type: 'medical',
         severity: quantity,
         description: `${CART_PREFIX}${JSON.stringify({ sku: product.sku, name: product.name, category: product.category, price: product.price })}`,
@@ -71,7 +78,9 @@ function AddToCart({ base, region, cartLines, onClose }) {
         count: current.count + quantity,
         total: current.total + product.price * quantity,
       }));
-      toast(`Added ${quantity} × ${product.name} to the ${REGION[region].name} cart.`);
+      setAddedSku(product.sku);
+      setTimeout(() => setAddedSku((prev) => (prev === product.sku ? '' : prev)), 1800);
+      toast(`Added ${quantity} × ${product.name} to ${REGION[region].name} cart.`);
     } catch (err) {
       toast(`Could not add product: ${err.message}`, 'bad');
     } finally {
@@ -79,56 +88,119 @@ function AddToCart({ base, region, cartLines, onClose }) {
     }
   };
 
+  const totalItems = startingCart.count + added.count;
+  const totalPrice = startingCart.total + added.total;
+
   return (
     <Portal>
       <motion.div className="overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
       <motion.div
         className="modal product-modal"
-        initial={{ opacity: 0, x: '-50%', y: '-46%', scale: 0.97 }}
+        initial={{ opacity: 0, x: '-50%', y: '-46%', scale: 0.96 }}
         animate={{ opacity: 1, x: '-50%', y: '-50%', scale: 1 }}
         exit={{ opacity: 0, x: '-50%', y: '-48%' }}
-        transition={{ duration: 0.22 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <div className="product-modal-heading">
-            <div className="product-store-label">CodeAstra Store</div>
-            <h2>Shop products</h2>
-            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Adding to the {REGION[region].name} cart</div>
+        <div className="product-modal-head">
+          <div className="product-modal-title-group">
+            <div className="store-badge">
+              <span className="store-badge-dot" />
+              <span>CODEASTRA CATALOG</span>
+            </div>
+            <h2>Shop &amp; Add Products</h2>
+            <div className="product-modal-sub">
+              Active Store: <strong>{REGION[region].name}</strong> · Concurrent cart writes replicate across nodes
+            </div>
           </div>
-          <button type="button" className="icon-btn" style={{ flex: 'none' }} onClick={onClose} aria-label="Close"><Close /></button>
+          <button type="button" className="icon-btn modal-close-btn" onClick={onClose} aria-label="Close">
+            <Close />
+          </button>
         </div>
+
         <div className="product-grid">
-          {PRODUCTS.map((product) => (
-            <article className="product-card" key={product.sku}>
-              <div className="product-card-main">
-                <ProductArtwork kind={product.art} />
-                <div className="product-card-copy">
-                  <div className="product-category">{product.category}</div>
-                  <h3>{product.name}</h3>
+          {PRODUCTS.map((product) => {
+            const currentQty = quantities[product.sku] || 1;
+            const isBusy = busySku === product.sku;
+            const isJustAdded = addedSku === product.sku;
+
+            return (
+              <article className="product-card" key={product.sku}>
+                <div className="product-card-top">
+                  <ProductArtwork kind={product.art} />
+                  <div className="product-card-details">
+                    <span className="product-category-tag">{product.category}</span>
+                    <h3 className="product-title">{product.name}</h3>
+                  </div>
                 </div>
-              </div>
-              <div className="product-card-buy">
-                <div className="product-price">{money(product.price)}</div>
-                <div className="product-buy-controls">
-                  <label className="product-quantity">
-                    <span>Qty</span>
-                    <select aria-label={`Quantity for ${product.name}`} value={quantities[product.sku] || 1}
-                      onChange={(e) => setQuantities((q) => ({ ...q, [product.sku]: e.target.value }))}>
-                      {[1, 2, 3, 4, 5].map((qty) => <option key={qty} value={qty}>{qty}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="btn product-add"
-                disabled={Boolean(busySku)} onClick={() => addProduct(product)}>
-                    <Cart /><span className="product-add-label">{busySku === product.sku ? 'Adding...' : 'Add to cart'}</span>
-                  </button>
+
+                <div className="product-card-bottom">
+                  <div className="product-price-row">
+                    <span className="product-price">{money(product.price)}</span>
+                    <span className="product-price-unit">/ unit</span>
+                  </div>
+
+                  <div className="product-actions-row">
+                    <div className="product-stepper" role="group" aria-label={`Quantity for ${product.name}`}>
+                      <button
+                        type="button"
+                        className="stepper-btn"
+                        onClick={() => updateQty(product.sku, -1)}
+                        disabled={currentQty <= 1 || isBusy}
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span className="stepper-count">{currentQty}</span>
+                      <button
+                        type="button"
+                        className="stepper-btn"
+                        onClick={() => updateQty(product.sku, 1)}
+                        disabled={currentQty >= 10 || isBusy}
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn product-add-btn ${isJustAdded ? 'is-added' : ''}`}
+                      disabled={Boolean(busySku)}
+                      onClick={() => addProduct(product)}
+                    >
+                      {isBusy ? (
+                        <span>Adding...</span>
+                      ) : isJustAdded ? (
+                        <>
+                          <Check />
+                          <span>Added</span>
+                        </>
+                      ) : (
+                        <>
+                          <Cart />
+                          <span>Add</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
+
         <footer className="product-cart-summary">
-          <span>Subtotal ({startingCart.count + added.count} {startingCart.count + added.count === 1 ? 'item' : 'items'})</span>
-          <strong>{money(startingCart.total + added.total)}</strong>
+          <div className="cart-summary-left">
+            <span className="cart-pill-count">{totalItems} {totalItems === 1 ? 'item' : 'items'} in cart</span>
+            <div className="cart-summary-price-box">
+              <span className="cart-summary-label">Subtotal:</span>
+              <strong className="cart-summary-price">{money(totalPrice)}</strong>
+            </div>
+          </div>
+          <button type="button" className="cart-done-btn" onClick={onClose}>
+            <span>View Cart</span>
+            <Arrow />
+          </button>
         </footer>
       </motion.div>
     </Portal>
