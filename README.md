@@ -11,7 +11,23 @@ aws configure --profile codeastra      # paste IAM user keys, region ap-south-1
 .\.venv\Scripts\python.exe check_aws.py
 ```
 
-## Run the engine locally
+## Run with Docker (recommended)
+
+Needs Docker Desktop running. No Python install required.
+
+```powershell
+docker compose up -d --build        # build and start 3 nodes on ports 8001-8003
+docker compose ps                   # all three should say "healthy"
+docker compose logs -f mum          # follow one node's log
+docker compose down                 # stop, keeps the data
+docker compose down -v              # stop and wipe the data (fresh start)
+```
+
+Each node keeps its database in a Docker volume, so data survives restarts and crashes.
+Check it end to end with `python infra\smoke_test.py` (needs the packages from `engine\requirements.txt`,
+or use the venv below). Do not run Docker and `infra\run_cluster.py` at the same time: they use the same ports.
+
+## Run the engine locally (without Docker)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r engine\requirements.txt

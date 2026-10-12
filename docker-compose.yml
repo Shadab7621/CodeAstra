@@ -1,0 +1,54 @@
+# Three engine nodes on one machine.   docker compose up -d --build
+#   Mumbai     http://localhost:8001
+#   Hyderabad  http://localhost:8002
+#   Singapore  http://localhost:8003
+# Ports 9001-9003 are reserved for the last-writer-wins baseline cluster (built separately).
+
+x-engine: &engine
+  build:
+    context: .
+    dockerfile: engine/Dockerfile
+  image: codeastra-engine
+  restart: unless-stopped
+
+services:
+  mum:
+    <<: *engine
+    container_name: codeastra-mum
+    environment:
+      NODE_ID: mum
+      PORT: "8001"
+      PEERS: "hyd=http://hyd:8002,sin=http://sin:8003"
+      MODE: crdt
+      DB_PATH: /data/mum.db
+    ports: ["8001:8001"]
+    volumes: ["mum-data:/data"]
+
+  hyd:
+    <<: *engine
+    container_name: codeastra-hyd
+    environment:
+      NODE_ID: hyd
+      PORT: "8002"
+      PEERS: "mum=http://mum:8001,sin=http://sin:8003"
+      MODE: crdt
+      DB_PATH: /data/hyd.db
+    ports: ["8002:8002"]
+    volumes: ["hyd-data:/data"]
+
+  sin:
+    <<: *engine
+    container_name: codeastra-sin
+    environment:
+      NODE_ID: sin
+      PORT: "8003"
+      PEERS: "mum=http://mum:8001,hyd=http://hyd:8002"
+      MODE: crdt
+      DB_PATH: /data/sin.db
+    ports: ["8003:8003"]
+    volumes: ["sin-data:/data"]
+
+volumes:
+  mum-data:
+  hyd-data:
+  sin-data:
