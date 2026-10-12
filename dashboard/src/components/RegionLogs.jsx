@@ -131,10 +131,6 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Region logs</h1>
-          <p className="page-sub">
-            What each region did, in order: writes, links cut and restored, sync, conflicts and recoveries.
-            Every entry is saved to MongoDB Atlas, so a crashed region&apos;s history is still here.
-          </p>
         </div>
       </div>
 
