@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { api } from '../api';
 import { NODES, REGION } from '../config';
+import { CART_PREFIX, COORDS, cartItem, lineQty, stockOf } from '../cart';
 import { Arrow, Cart, Check, Close } from './Icons';
 import Panel, { Portal } from './Panel';
 import { useToast } from './Toast';
 import { Segmented } from './TopBar';
 
-const COORDS = { mum: [19.076, 72.877], hyd: [17.385, 78.487], sin: [1.352, 103.82] };
-const CART_PREFIX = 'cart-item:v1:';
 const PRODUCTS = [
   { sku: 'sound-01', name: 'Wireless Headphones', category: 'Electronics', price: 2499, art: 'headphones' },
   { sku: 'home-02', name: 'Desk Lamp', category: 'Home', price: 1299, art: 'lamp' },
@@ -17,11 +16,6 @@ const PRODUCTS = [
   { sku: 'daily-05', name: 'Steel Water Bottle', category: 'Lifestyle', price: 599, art: 'bottle' },
   { sku: 'care-06', name: 'First Aid Kit', category: 'Personal care', price: 499, art: 'kit' },
 ];
-
-function cartItem(description) {
-  if (!description?.startsWith(CART_PREFIX)) return null;
-  try { return JSON.parse(description.slice(CART_PREFIX.length)); } catch { return null; }
-}
 
 const DURABILITY_RANK = { local: 0, replicated: 1, confirmed: 2 };
 
@@ -34,7 +28,7 @@ function mergeLines(cartLines) {
   const byProduct = new Map();
   for (const { report, item } of cartLines) {
     const row = byProduct.get(item.sku) || { sku: item.sku, item, quantity: 0, adds: 0, ids: [], durability: 'confirmed' };
-    row.quantity += report.severity;
+    row.quantity += lineQty(report, item);
     row.adds += 1;
     row.ids.push(report.report_id);
     if ((DURABILITY_RANK[report.durability] ?? 0) < DURABILITY_RANK[row.durability]) row.durability = report.durability;
@@ -71,14 +65,14 @@ function AddToCart({ base, region, cartLines, onClose }) {
   const [addedSku, setAddedSku] = useState('');
   const [added, setAdded] = useState({ count: 0, total: 0 });
   const [startingCart] = useState(() => ({
-    count: cartLines.reduce((sum, { report }) => sum + report.severity, 0),
-    total: cartLines.reduce((sum, { report, item }) => sum + item.price * report.severity, 0),
+    count: cartLines.reduce((sum, { report, item }) => sum + lineQty(report, item), 0),
+    total: cartLines.reduce((sum, { report, item }) => sum + item.price * lineQty(report, item), 0),
   }));
 
   const updateQty = (sku, delta) => {
     setQuantities((prev) => {
       const cur = prev[sku] || 1;
-      const next = Math.max(1, Math.min(10, cur + delta));
+      const next = Math.max(1, Math.min(10, stockOf(sku), cur + delta));
       return { ...prev, [sku]: next };
     });
   };
@@ -157,6 +151,7 @@ function AddToCart({ base, region, cartLines, onClose }) {
                   <div className="product-price-row">
                     <span className="product-price">{money(product.price)}</span>
                     <span className="product-price-unit">/ unit</span>
+                    <span className="product-stock-pill">{stockOf(product.sku)} units in stock</span>
                   </div>
 
                   <div className="product-actions-row">
@@ -175,7 +170,7 @@ function AddToCart({ base, region, cartLines, onClose }) {
                         type="button"
                         className="stepper-btn"
                         onClick={() => updateQty(product.sku, 1)}
-                        disabled={currentQty >= 10 || isBusy}
+                        disabled={currentQty >= Math.min(10, stockOf(product.sku)) || isBusy}
                         aria-label="Increase quantity"
                       >
                         +
@@ -249,8 +244,27 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
   const reports = node && node.state === 'up' ? node.reports : null;
   const cartLines = reports?.map((report) => ({ report, item: cartItem(report.description) }))
     .filter(({ item }) => item) || [];
-  const itemCount = cartLines.reduce((sum, { report }) => sum + report.severity, 0);
+  const itemCount = cartLines.reduce((sum, { report, item }) => sum + lineQty(report, item), 0);
   const cartRows = mergeLines(cartLines);
+  const toast = useToast();
+
+  // Editing writes the new quantity into the line's first record. Two regions editing the same
+  // line while apart produce a real conflict, which lands in the ledger.
+  const changeQty = async (sku, delta) => {
+    const lines = cartLines.filter(({ item }) => item.sku === sku);
+    if (lines.length === 0) return;
+    const { report, item } = lines[0];
+    const total = cartRows.find((r) => r.sku === sku)?.quantity ?? 0;
+    if (delta > 0 && total >= stockOf(sku)) return;
+    const next = Math.max(1, lineQty(report, item) + delta);
+    if (next === lineQty(report, item)) return;
+    try {
+      await api.patch(urls[selected], report.report_id,
+        { description: `${CART_PREFIX}${JSON.stringify({ ...item, qty: next })}` });
+    } catch (err) {
+      toast(`Could not change quantity: ${err.message}`, 'bad');
+    }
+  };
 
   // Briefly highlight rows that changed since the last poll.
   useEffect(() => {
@@ -300,7 +314,7 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
           <div className="table-wrap">
           <table className="cart-table">
             <thead>
-              <tr><th>Item</th><th>Unit price</th><th>Quantity</th><th>Total</th><th>Replication</th></tr>
+              <tr><th>Item</th><th>Unit price</th><th>Total stock</th><th>Quantity</th><th>Total</th><th>Replication</th></tr>
             </thead>
             <tbody>
               <AnimatePresence initial={false}>
@@ -317,7 +331,21 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
                       </div>
                     </td>
                     <td className="cart-number">{money(item.price)}</td>
-                    <td><span className="cart-quantity">{quantity}</span></td>
+                    <td className="cart-number">
+                      {stockOf(sku)}
+                      <div className="cart-item-meta">{quantity > stockOf(sku)
+                        ? <span className="pill bad">Over stock by {quantity - stockOf(sku)}</span>
+                        : `${stockOf(sku) - quantity} left after this cart`}</div>
+                    </td>
+                    <td>
+                      <div className="product-stepper" role="group" aria-label={`Quantity for ${item.name}`}>
+                        <button type="button" className="stepper-btn" aria-label="Decrease quantity"
+                          disabled={quantity <= 1} onClick={() => changeQty(sku, -1)}>−</button>
+                        <span className="stepper-count">{quantity}</span>
+                        <button type="button" className="stepper-btn" aria-label="Increase quantity"
+                          disabled={quantity >= stockOf(sku)} onClick={() => changeQty(sku, 1)}>+</button>
+                      </div>
+                    </td>
                     <td className="cart-number cart-line-total">{money(item.price * quantity)}</td>
                     <td><Durability value={durability} /></td>
                   </motion.tr>
@@ -327,7 +355,9 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
           </table>
           </div>
           <footer className="cart-summary">
-            <div className="cart-summary-note">{itemCount} {itemCount === 1 ? 'item' : 'items'} in {REGION[selected].name}</div>
+            <div className="cart-summary-note">
+              Total quantity in {REGION[selected].name}: <strong>{itemCount}</strong>
+            </div>
             <div className="cart-summary-help">Cart items appear in other regions when the replication links are connected.</div>
           </footer>
         </div>

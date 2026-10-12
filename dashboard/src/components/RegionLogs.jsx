@@ -69,14 +69,6 @@ const ClockIcon = () => (
   </svg>
 );
 
-const DatabaseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-  </svg>
-);
-
 const GlobeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -107,11 +99,16 @@ const KIND_LABEL = {
   startup: 'Started',
 };
 
-const clock = (iso) => {
+/** "Today" / "Yesterday" / "13 Oct", with the time in the viewer's own clock and 12-hour style. */
+const stamp = (iso) => {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n, w = 2) => String(n).padStart(w, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+  if (Number.isNaN(d.getTime())) return { day: '', time: '' };
+  const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000);
+  const day = days === 0 ? 'Today' : days === 1 ? 'Yesterday'
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  return { day, time };
 };
 
 /**
@@ -208,21 +205,10 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
   const health = nodeHealth(node);
   const regionInfo = REGION_META[region] || { index: 1, continent: 'Asia' };
   const eventCount = node?.status?.event_count ?? (entries ? entries.length : 0);
-  const rawUrl = urls[region] || '';
-  const sourceLabel = rawUrl.replace(/^https?:\/\//, '') || `${region}:800${regionInfo.index}`;
   const lastUpdatedText = entries && entries.length > 0 ? relativeTime(entries[0].ts) : '—';
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Region logs</h1>
-          <p className="page-sub">
-            View system logs for each region to monitor updates, synchronization, conflicts and faults.
-          </p>
-        </div>
-      </div>
-
       <div className="rl-card">
         {/* Row 1: Region Identity & Region Pills */}
         <div className="rl-header-row">
@@ -279,7 +265,7 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
             <div className="rl-vdiv" aria-hidden="true" />
 
             <div className="rl-metric-item">
-              <div className="rl-metric-icon">
+              <div className="rl-metric-icon is-events">
                 <FileTextIcon />
               </div>
               <div className="rl-metric-text">
@@ -291,7 +277,7 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
             <div className="rl-vdiv" aria-hidden="true" />
 
             <div className="rl-metric-item">
-              <div className="rl-metric-icon">
+              <div className="rl-metric-icon is-clock">
                 <ClockIcon />
               </div>
               <div className="rl-metric-text">
@@ -301,16 +287,6 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
             </div>
 
             <div className="rl-vdiv" aria-hidden="true" />
-
-            <div className="rl-metric-item">
-              <div className="rl-metric-icon">
-                <DatabaseIcon />
-              </div>
-              <div className="rl-metric-text">
-                <span className="rl-metric-lbl">Source</span>
-                <span className="rl-metric-val mono">{sourceLabel}</span>
-              </div>
-            </div>
           </div>
 
           <div className="rl-search-box">
@@ -419,8 +395,11 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
                   transition={{ duration: 0.2 }}
                   className={`log-row ${e.level} ${fresh.has(e.id) ? 'flash' : ''}`}
                 >
-                  <time className="log-time mono" dateTime={e.ts} title={e.ts}>{clock(e.ts)}</time>
-                  <span className={`log-kind ${e.level}`}>{KIND_LABEL[e.kind] || e.kind}</span>
+                  <time className="log-time" dateTime={e.ts} title={new Date(e.ts).toLocaleString()}>
+                    <strong>{stamp(e.ts).time}</strong>
+                    <span>{stamp(e.ts).day}</span>
+                  </time>
+                  <span className={`log-kind k-${e.kind} ${e.level}`}>{KIND_LABEL[e.kind] || e.kind}</span>
                   <span className="log-message">{e.message}</span>
                   <span className="log-ago muted">{relativeTime(e.ts)}</span>
                 </motion.li>

@@ -1,3 +1,4 @@
+import { findStockIssues } from '../cart';
 import { REGION } from '../config';
 import { useCluster } from '../hooks';
 import { ReadOnlyNotice, useClusterActions, useSelectedRegion } from './ClusterView';
@@ -17,6 +18,8 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
   const canAct = env === 'local' || Boolean(token);
   const selectedNode = nodes[selected];
   const conflicts = selectedNode && selectedNode.state === 'up' ? selectedNode.conflicts : [];
+
+  const stockIssues = selectedNode && selectedNode.state === 'up' ? findStockIssues(selectedNode.reports) : [];
 
   const summary = syncSummary(nodes);
   const links = allLinks(nodes);
@@ -119,7 +122,7 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
         </div>
       </div>
 
-      <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={baseline ? 'baseline' : 'engine'} />
+      <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={baseline ? 'baseline' : 'engine'} stockIssues={stockIssues} />
     </div>
   );
 }
