@@ -22,6 +22,7 @@ Re-running `up` with a different set of nodes replaces instances whose config ch
 """
 import hashlib
 import json
+import re
 import secrets
 import sys
 import time
@@ -41,7 +42,7 @@ NODES = {  # node id -> (region, port)
     "hyd": ("ap-south-2", 8002),
     "sin": ("ap-southeast-1", 8003),
 }
-USER_DATA_VERSION = "3"  # bump when user_data() changes so `up` replaces old instances
+USER_DATA_VERSION = "4"  # bump when user_data() changes so `up` replaces old instances
 TAGS = [{"Key": "project", "Value": "codeastra"}]
 TOKEN_FILE = Path(__file__).resolve().parent / ".admin_token"   # git-ignored
 session = boto3.Session(profile_name=PROFILE)
@@ -127,9 +128,11 @@ systemctl enable --now docker
 git clone --depth 1 {REPO} /opt/app
 cd /opt/app
 docker build -f engine/Dockerfile -t codeastra-engine .
+set +x   # do not echo the next command: it contains the admin token
 docker run -d --name node --restart unless-stopped -p {port}:{port} -v codeastra-data:/data \\
   -e NODE_ID={node} -e PORT={port} -e PEERS="{peers}" -e MODE=crdt -e DB_PATH=/data/{node}.db \\
   -e ADMIN_TOKEN="{token}" codeastra-engine
+set -x
 
 # Self-check, printed to the boot log (read it with: aws_cluster.py logs <node>).
 sleep 15
@@ -288,7 +291,8 @@ def logs(node):
         sys.exit(f"{node}: no instance")
     out = client.get_console_output(InstanceId=instance["InstanceId"], Latest=True).get("Output")
     lines = [l.encode("ascii", "replace").decode() for l in (out or "").replace("\r", "").split("\n")]
-    keep = [l for l in lines if "cloud-init[" in l and " #" not in l]  # skip docker build noise
+    keep = [re.sub(r"ADMIN_TOKEN=\S+", "ADMIN_TOKEN=***", l)   # never print the secret
+            for l in lines if "cloud-init[" in l and " #" not in l]  # skip docker build noise
     print("\n".join(keep[-60:]) or "(no output yet, the server is still booting)")
 
 
