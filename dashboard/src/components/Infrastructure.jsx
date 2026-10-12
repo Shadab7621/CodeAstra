@@ -20,11 +20,7 @@ function StatTile({ label, value, foot, delay }) {
   );
 }
 
-<<<<<<< HEAD
-function NodeCard({ id, node, meta, url, onOpenLogs }) {
-=======
-function NodeCard({ id, node, meta, url, canAct, actions }) {
->>>>>>> 44fc925 (Improve DisasterSync conflict handling and recovery)
+function NodeCard({ id, node, meta, url, canAct, actions, onOpenLogs }) {
   const health = nodeHealth(node);
   const up = node && node.state === 'up';
   const paused = node && node.state === 'paused';
@@ -116,28 +112,13 @@ function NodeCard({ id, node, meta, url, canAct, actions }) {
         >
           {skewed ? 'Reset Clock' : 'Skew +1h'}
         </button>
+
+        {onOpenLogs && (
+          <button type="button" className="btn btn-sm node-logs-btn" onClick={() => onOpenLogs(id)}>
+            View {REGION[id].name} logs
+          </button>
+        )}
       </div>
-<<<<<<< HEAD
-      <dl className="spec">
-        <dt>Service</dt><dd>{meta.service}</dd>
-        <dt>Region</dt><dd className="mono">{meta.regionCode}</dd>
-        <dt>Location</dt><dd>{meta.zone}</dd>
-        <dt>Machine</dt><dd className="mono">{meta.instance}</dd>
-        <dt>Processor</dt><dd>{meta.cpu}</dd>
-        <dt>System</dt><dd>{meta.os}</dd>
-        <dt>Endpoint</dt><dd className="mono">{url.replace('http://', '')}</dd>
-        <dt>Events held</dt><dd className="num">{up ? s.event_count : '-'}</dd>
-        <dt>State hash</dt><dd className="mono">{up ? shortHash(s.state_hash) : '-'}</dd>
-        <dt>Own chain head</dt><dd className="mono">{ownHead ? `#${ownHead.seq} ${shortHash(ownHead.hash)}` : '-'}</dd>
-        <dt>Forged refused</dt><dd className="num">{up && s.integrity ? s.integrity.rejected_events : '-'}</dd>
-      </dl>
-      {onOpenLogs && (
-        <button type="button" className="btn btn-sm node-logs-btn" onClick={() => onOpenLogs(id)}>
-          View {REGION[id].name} logs
-        </button>
-      )}
-=======
->>>>>>> 44fc925 (Improve DisasterSync conflict handling and recovery)
     </Card>
   );
 }
@@ -282,32 +263,32 @@ export default function Infrastructure({ urls, meta, token, env, onOpenLogs }) {
       </div>
 
       <Panel
-<<<<<<< HEAD
-        title="Topology"
-        hint={`${canAct ? 'Click a link to cut or restore it. ' : ''}Click a region to open its log. Moving dots mean the two regions are exchanging data.`}
-        actions={<span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>{summary.text}</span>}
-      >
-        <Topology nodes={nodes} links={allLinks(nodes)} meta={meta} onToggleLink={canAct ? actions.toggleLink : undefined} onSelectNode={onOpenLogs} />
-      </Panel>
-
-      <div className="grid-3">
-        {NODES.map((id) => <NodeCard key={id} id={id} node={nodes[id]} meta={meta[id]} url={urls[id]} onOpenLogs={onOpenLogs} />)}
-=======
         title="Topology & Signal Network"
-        hint="Interactive SVG network graph. Click on any curved signal line or center badge to cut or restore the connection."
+        hint="Interactive SVG network graph. Click on any curved signal line or center badge to cut or restore the connection, or click a region to open its log."
         actions={
-          anyCut && (
-            <button
-              className="btn btn-sm btn-primary"
-              disabled={!canAct}
-              onClick={actions.healAll}
-            >
-              Heal All Links
-            </button>
-          )
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {anyCut && (
+              <button
+                className="btn btn-sm btn-primary"
+                disabled={!canAct}
+                onClick={actions.healAll}
+              >
+                Heal All Links
+              </button>
+            )}
+            <span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>
+              {summary.text}
+            </span>
+          </div>
         }
       >
-        <Topology nodes={nodes} links={links} meta={meta} onToggleLink={canAct ? actions.toggleLink : undefined} />
+        <Topology
+          nodes={nodes}
+          links={links}
+          meta={meta}
+          onToggleLink={canAct ? actions.toggleLink : undefined}
+          onSelectNode={onOpenLogs}
+        />
 
         <div className="link-quick-strip">
           <span style={{ fontSize: '12px', fontWeight: 650, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px' }}>
@@ -344,9 +325,9 @@ export default function Infrastructure({ urls, meta, token, env, onOpenLogs }) {
             url={urls[id]}
             canAct={canAct}
             actions={actions}
+            onOpenLogs={onOpenLogs}
           />
         ))}
->>>>>>> 44fc925 (Improve DisasterSync conflict handling and recovery)
       </div>
 
       <Panel
