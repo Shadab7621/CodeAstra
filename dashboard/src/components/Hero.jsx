@@ -80,17 +80,27 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
       </div>
 
       <nav className="hero-nav">
-        <span className="brand"><img src="/logo.png" alt="DisasterSync" className="brand-mark" />DisasterSync</span>
-        <div className="hero-links">
-          <button onClick={() => onEnter('overview')}>Console</button>
-          <button onClick={() => onEnter('infrastructure')}>Infrastructure</button>
-          <button onClick={() => onEnter('compare')}>Compare</button>
+        <div className="hero-nav-left">
+          <span className="brand">
+            <img src="/logo.png" alt="DisasterSync" className="brand-mark" />
+            <span className="brand-name">DisasterSync</span>
+          </span>
         </div>
-        <span className="spacer" />
-        <button className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
-          {dark ? <Sun /> : <Moon />}
-        </button>
-        <button className="btn btn-glass" onClick={() => onEnter('overview')}>Open console</button>
+
+        <div className="hero-nav-center">
+          <div className="hero-links">
+            <button type="button" onClick={() => onEnter('overview')}>Console</button>
+            <button type="button" onClick={() => onEnter('infrastructure')}>Infrastructure</button>
+            <button type="button" onClick={() => onEnter('compare')}>Compare</button>
+          </div>
+        </div>
+
+        <div className="hero-nav-right">
+          <button type="button" className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
+            {dark ? <Sun /> : <Moon />}
+          </button>
+          <button type="button" className="btn btn-glass" onClick={() => onEnter('overview')}>Open console</button>
+        </div>
       </nav>
 
       <header className="hero-center">
