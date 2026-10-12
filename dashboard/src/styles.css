@@ -1033,3 +1033,9 @@ tr.flash td { animation: flash 1.2s var(--ease); }
   .log-message { grid-column: 1 / -1; }
   .log-ago { display: none; }
 }
+
+/* ---- Conflict ledger: why a version won ----------------------------------------------------- */
+.conflict-why { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.conflict-why.open { color: var(--warn); }
+.candidate.won { border-color: var(--ok); }
+.kept-pill { margin-left: 8px; vertical-align: middle; }

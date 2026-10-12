@@ -1,6 +1,7 @@
 import { REGION } from '../config';
 import { useCluster } from '../hooks';
 import { ReadOnlyNotice, useClusterActions, useSelectedRegion } from './ClusterView';
+import Ledger from './Ledger';
 import Panel from './Panel';
 import Regions, { PAIRS, allLinks, linkState, syncSummary } from './Regions';
 import Reports from './Reports';
@@ -14,6 +15,8 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
   const [selected, setSelected] = useSelectedRegion();
   const actions = useClusterActions(urls, token);
   const canAct = env === 'local' || Boolean(token);
+  const selectedNode = nodes[selected];
+  const conflicts = selectedNode && selectedNode.state === 'up' ? selectedNode.conflicts : [];
 
   const summary = syncSummary(nodes);
   const links = allLinks(nodes);
@@ -115,6 +118,8 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
           </Panel>
         </div>
       </div>
+
+      <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={baseline ? 'baseline' : 'engine'} />
     </div>
   );
 }

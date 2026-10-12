@@ -36,12 +36,14 @@ function Conflict({ entry, base, token }) {
           : entry.status === 'operator_resolved' ? <span className="pill ok">Decided</span>
             : <span className="pill info">Resolved by rule</span>}
       </div>
+      {entry.explanation && <p className={`conflict-why ${open ? 'open' : ''}`}>{entry.explanation}</p>}
       <div className="candidates">
         {entry.candidates.map((c) => (
-          <div className="candidate" key={c.event_id}>
+          <div className={`candidate ${entry.winner && entry.winner.event_id === c.event_id ? 'won' : ''}`} key={c.event_id}>
             <div>
               <span className="who">Written in {REGION[c.origin]?.name || c.origin}</span>
               <q>{show(c.value)}</q>
+              {entry.winner && entry.winner.event_id === c.event_id && <span className="pill ok kept-pill">Kept</span>}
             </div>
             {open && <button className="btn btn-sm" disabled={busy} onClick={() => choose(c)}>Keep this</button>}
           </div>

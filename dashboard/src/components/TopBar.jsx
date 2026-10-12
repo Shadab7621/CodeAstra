@@ -28,7 +28,7 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
     <header className="topbar">
       <div className="topbar-left">
         <button className="brand" onClick={onHome} aria-label="Back to the landing page">
-          <img src="/logo.png" alt="DisasterSync" className="brand-mark" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="DisasterSync" className="brand-mark" />
           <span className="brand-name">DisasterSync</span>
         </button>
       </div>
