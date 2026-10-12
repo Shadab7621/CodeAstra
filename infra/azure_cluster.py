@@ -18,6 +18,7 @@ Student subscriptions allow only a few regions; the defaults below are ones that
 No SSH port is opened. The node port is open to everyone and protected by the admin token.
 """
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -27,7 +28,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from aws_cluster import REPO, admin_token  # shared token and repo URL
+from aws_cluster import REPO, admin_token, mongo_uri  # shared token, repo URL, Atlas URI
 
 NODES = {  # node id -> (azure region, port). Only sin is a true Singapore location.
     "sin": ("southeastasia", 8003),
@@ -63,7 +64,8 @@ def group(node):
     return f"codeastra-{node}"
 
 
-def startup_script(node, port, peers, token):
+def startup_script(node, port, peers, token, mongo=""):
+    mongo_flag = f'\\\n  -e MONGODB_URI="{mongo}" ' if mongo else " "
     return f"""#!/bin/bash
 set -x
 export DEBIAN_FRONTEND=noninteractive
@@ -76,7 +78,7 @@ docker build -f engine/Dockerfile -t codeastra-engine .
 set +x   # do not echo the next command: it contains the admin token
 docker run -d --name node --restart unless-stopped -p {port}:{port} -v codeastra-data:/data \\
   -e NODE_ID={node} -e PORT={port} -e PEERS="{peers}" -e MODE=crdt -e DB_PATH=/data/{node}.db \\
-  -e ADMIN_TOKEN="{token}" codeastra-engine
+  -e ADMIN_TOKEN="{token}" {mongo_flag}codeastra-engine
 set -x
 sleep 15
 echo "DIAG docker ps:"; docker ps -a
@@ -101,7 +103,7 @@ def up(node, peers, size):
     print(f"{node}: address {ip} ({region})")
 
     script = startup_script(node, port, ",".join(f"{k}={v}" for k, v in sorted(peers.items())),
-                            admin_token())
+                            admin_token(), mongo_uri())
     with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
         f.write(script)
     chosen = None
@@ -166,6 +168,8 @@ docker build -q -f engine/Dockerfile -t codeastra-engine .
 ENVFILE=$(mktemp)
 docker inspect node --format '{{range .Config.Env}}{{println .}}{{end}}' \
   | grep -E '^(NODE_ID|PORT|PEERS|MODE|DB_PATH|ADMIN_TOKEN)=' > "$ENVFILE"
+MONGO='__MONGODB_URI__'
+if [ -n "$MONGO" ]; then echo "MONGODB_URI=$MONGO" >> "$ENVFILE"; fi
 PORT=$(grep '^PORT=' "$ENVFILE" | cut -d= -f2)
 docker rm -f node
 docker run -d --name node --restart unless-stopped -p "$PORT:$PORT" -v codeastra-data:/data \
@@ -179,11 +183,14 @@ curl -s -m 5 "http://127.0.0.1:$PORT/healthz" && echo " node is healthy" || echo
 def update(node):
     """Pull the newest code onto the existing server and restart the node. No port is touched."""
     with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False, newline="\n") as f:
-        f.write(UPDATE_SCRIPT)
+        f.write(UPDATE_SCRIPT.replace("__MONGODB_URI__", mongo_uri()))
     print(f"{node}: updating in place (takes a minute or two) ...")
-    result = az("vm", "run-command", "invoke", "-g", group(node), "-n", f"codeastra-{node}",
-                "--command-id", "RunShellScript", "--scripts", f"@{f.name}",
-                "--query", "value[0].message", "--output", "tsv")
+    try:
+        result = az("vm", "run-command", "invoke", "-g", group(node), "-n", f"codeastra-{node}",
+                    "--command-id", "RunShellScript", "--scripts", f"@{f.name}",
+                    "--query", "value[0].message", "--output", "tsv")
+    finally:
+        os.unlink(f.name)  # it holds the Atlas password
     tail = [l for l in result.stdout.replace("\r", "").split("\n") if l.strip()][-6:]
     print("\n".join(l.encode("ascii", "replace").decode() for l in tail))
 

@@ -15,3 +15,4 @@ data/
 *.db-journal
 node_modules/
 .pytest_cache/
+.mongo_uri

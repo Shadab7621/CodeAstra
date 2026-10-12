@@ -34,6 +34,15 @@ def main() -> None:
             (data / f"{node}.db").unlink(missing_ok=True)
     extra = {"SYNC_INTERVAL_MS": "100"} if "--fast" in sys.argv else {}
 
+    # The activity log goes to MongoDB Atlas when a URI is available (MONGODB_URI or the
+    # git-ignored infra/.mongo_uri). Not in --fast mode: the benchmark would flood it.
+    uri_file = ROOT / "infra" / ".mongo_uri"
+    mongo = os.environ.get("MONGODB_URI") or (
+        uri_file.read_text().strip() if uri_file.exists() else "")
+    if "--fast" in sys.argv:
+        mongo = ""
+    print("Activity log:", "MongoDB Atlas" if mongo else "memory only (no MONGODB_URI)")
+
     procs = []
     for base, kind in ((8000, "crdt"), (9000, "lww")):
         if kind == "lww" and "--baseline" not in sys.argv:
@@ -41,7 +50,8 @@ def main() -> None:
         for node, n in NODES.items():
             peers = ",".join(f"{p}=http://{HOST}:{base + pn}" for p, pn in NODES.items()
                              if p != node)
-            launch(procs, kind, node, base + n, peers, extra)
+            launch(procs, kind, node, base + n, peers,
+                   {**extra, "MONGODB_URI": mongo} if kind == "crdt" else extra)
 
     print("Cluster running. Press Ctrl+C to stop.")
     try:

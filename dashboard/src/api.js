@@ -45,6 +45,12 @@ export const api = {
   syncNow: (b, t) => post(b, '/admin/sync-now', {}, t),
   cluster: (b) => request(b, '/cluster'),
   conflicts: (b) => request(b, '/conflicts'),
+  logs: (b, { region, limit = 100, kind } = {}) => {
+    const q = new URLSearchParams({ limit: String(limit) });
+    if (region) q.set('region', region);
+    if (kind) q.set('kind', kind);
+    return request(b, `/logs?${q}`);
+  },
   heads: (b) => request(b, '/audit/heads'),
   verify: (b) => request(b, '/audit/verify'),
   history: (b, id) => request(b, `/reports/${id}/history`),

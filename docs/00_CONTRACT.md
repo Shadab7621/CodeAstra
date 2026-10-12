@@ -245,6 +245,24 @@ down, `during` when it came back (what the region held while cut off, before any
 `after` once caught up. `failed` counts events the node rejected during the episode (forged or
 tampered). `received` and `sent` are change counts from that peer's perspective of this node.
 
+### 3.12 Activity log in MongoDB Atlas (v1.7) - additive
+
+- Each node records what it does (writes, links cut/restored, pause/resume, clock skew, reset,
+  sync, conflicts, recovery reports) as activity entries and ships them in the background to the
+  `activity_logs` collection of the database named in `MONGODB_URI`. Without the variable the
+  log lives in memory only (last 500 entries). Entries older than 14 days expire.
+- This is observability, not replication: SQLite stays the source of truth, and a request never
+  waits for Atlas. If Atlas is unreachable the node keeps working, queues entries and delivers
+  them when it returns.
+- `GET /logs?region=<id>&limit=<n>&kind=<kind>` (open, read-only, also answers while paused)
+  returns `{ node_id, region, source: "atlas" | "memory", storage: {backend, connected, queued,
+  error}, entries: [...] }`, newest first. Any node can serve any region's log while Atlas is
+  reachable. An entry is `{ id, region, seq, t (unix s), ts (ISO), kind, level (info|warn|bad),
+  message, detail }`. Kinds: `startup write resolve link sync conflict recovery pause resume
+  clock reset`.
+- The connection string is a secret: it is read from the environment (`infra/.mongo_uri` locally,
+  passed to cloud nodes by the deploy scripts) and never sent to a browser.
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.

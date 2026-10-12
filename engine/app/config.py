@@ -15,6 +15,8 @@ class Config:
     # When set, /admin/*, /sync and conflict resolution require the header X-Admin-Token.
     # Empty means open (local development and tests).
     admin_token: str = ""
+    # MongoDB Atlas connection string for the activity log. Empty keeps the log in memory only.
+    mongo_uri: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -27,4 +29,5 @@ class Config:
             mode=os.getenv("MODE", "crdt"),
             db_path=os.getenv("DB_PATH", f"data/{node_id}.db"),
             admin_token=os.getenv("ADMIN_TOKEN", ""),
+            mongo_uri=os.getenv("MONGODB_URI", ""),
         )

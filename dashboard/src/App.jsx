@@ -5,6 +5,7 @@ import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
 import LiveTests from './components/LiveTests';
 import Overview from './components/Overview';
+import RegionLogs from './components/RegionLogs';
 import Settings from './components/Settings';
 import { ToastProvider } from './components/Toast';
 import TopBar from './components/TopBar';
@@ -13,7 +14,7 @@ import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'tests', 'compare'];
+const VIEWS = ['overview', 'infrastructure', 'tests', 'compare', 'logs'];
 
 // A hash such as #overview, #infrastructure or #compare opens the console directly.
 function fromHash() {
@@ -35,6 +36,14 @@ export default function App() {
   const [token, setToken] = useState(loadToken);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [results, setResults] = useState(null);
+  const [logRegion, setLogRegion] = useState('mum');
+
+  // Clicking a region on the Infrastructure page opens that region's log.
+  const openLogs = (region) => {
+    setLogRegion(region);
+    setView('logs');
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}results.json`)
@@ -112,7 +121,10 @@ export default function App() {
                       <Compare engineUrls={envs.local.engine} baselineUrls={envs.local.baseline} results={results} />
                     )}
                     {view === 'infrastructure' && (
-                      <Infrastructure urls={current.engine} meta={meta} token={token} env={env} />
+                      <Infrastructure urls={current.engine} meta={meta} token={token} env={env} onOpenLogs={openLogs} />
+                    )}
+                    {view === 'logs' && (
+                      <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
                     )}
                     {view === 'tests' && (
                       <LiveTests urls={current.engine} meta={meta} token={token} env={env} />

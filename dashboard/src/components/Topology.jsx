@@ -32,7 +32,7 @@ function zones(meta) {
  * The cluster as a picture: provider zones, regions, and the links between them.
  * nodes: { mum: { state: 'up' | 'paused' | 'down', rtt } }, links: { 'mum-hyd': 'ok' | 'cut' | 'unknown' }
  */
-export default function Topology({ nodes, links, meta, onToggleLink, writing = [] }) {
+export default function Topology({ nodes, links, meta, onToggleLink, onSelectNode, writing = [] }) {
   return (
     <svg className="topology" viewBox="0 0 900 340" role="img" aria-label="Cluster topology">
       <defs>
@@ -76,7 +76,16 @@ export default function Topology({ nodes, links, meta, onToggleLink, writing = [
         const node = nodes[id] || {};
         const state = node.state || 'unknown';
         return (
-          <g key={id} className={`tnode ${state}`} transform={`translate(${p.x} ${p.y})`}>
+          <g
+            key={id} className={`tnode ${state}${onSelectNode ? ' clickable' : ''}`}
+            transform={`translate(${p.x} ${p.y})`}
+            {...(onSelectNode ? {
+              role: 'button', tabIndex: 0,
+              onClick: () => onSelectNode(id),
+              onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') onSelectNode(id); },
+            } : {})}
+          >
+            {onSelectNode && <title>{`Open the ${REGION[id].name} log`}</title>}
             {writing.includes(id) && <circle className="tnode-pulse" r="34" />}
             <circle className="tnode-halo" r="40" />
             <circle className="tnode-body" r="32" />

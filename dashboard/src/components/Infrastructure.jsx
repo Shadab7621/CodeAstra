@@ -20,7 +20,7 @@ function StatTile({ label, value, foot, delay }) {
   );
 }
 
-function NodeCard({ id, node, meta, url }) {
+function NodeCard({ id, node, meta, url, onOpenLogs }) {
   const health = nodeHealth(node);
   const up = node && node.state === 'up';
   const s = up ? node.status : null;
@@ -51,6 +51,11 @@ function NodeCard({ id, node, meta, url }) {
         <dt>Own chain head</dt><dd className="mono">{ownHead ? `#${ownHead.seq} ${shortHash(ownHead.hash)}` : '-'}</dd>
         <dt>Forged refused</dt><dd className="num">{up && s.integrity ? s.integrity.rejected_events : '-'}</dd>
       </dl>
+      {onOpenLogs && (
+        <button type="button" className="btn btn-sm node-logs-btn" onClick={() => onOpenLogs(id)}>
+          View {REGION[id].name} logs
+        </button>
+      )}
     </Card>
   );
 }
@@ -88,7 +93,7 @@ function ReplicationMatrix({ nodes }) {
   );
 }
 
-export default function Infrastructure({ urls, meta, token, env }) {
+export default function Infrastructure({ urls, meta, token, env, onOpenLogs }) {
   const { nodes } = useCluster(urls);
   const actions = useClusterActions(urls, token);
   const canAct = env === 'local' || Boolean(token);
@@ -125,14 +130,14 @@ export default function Infrastructure({ urls, meta, token, env }) {
 
       <Panel
         title="Topology"
-        hint={canAct ? 'Click a link to cut or restore it. Moving dots mean the two regions are exchanging data.' : 'Moving dots mean the two regions are exchanging data.'}
+        hint={`${canAct ? 'Click a link to cut or restore it. ' : ''}Click a region to open its log. Moving dots mean the two regions are exchanging data.`}
         actions={<span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>{summary.text}</span>}
       >
-        <Topology nodes={nodes} links={allLinks(nodes)} meta={meta} onToggleLink={canAct ? actions.toggleLink : undefined} />
+        <Topology nodes={nodes} links={allLinks(nodes)} meta={meta} onToggleLink={canAct ? actions.toggleLink : undefined} onSelectNode={onOpenLogs} />
       </Panel>
 
       <div className="grid-3">
-        {NODES.map((id) => <NodeCard key={id} id={id} node={nodes[id]} meta={meta[id]} url={urls[id]} />)}
+        {NODES.map((id) => <NodeCard key={id} id={id} node={nodes[id]} meta={meta[id]} url={urls[id]} onOpenLogs={onOpenLogs} />)}
       </div>
 
       <Panel title="Replication links" hint="What each region reports about its connection to the others." flush>
