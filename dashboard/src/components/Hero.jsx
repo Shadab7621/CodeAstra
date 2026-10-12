@@ -1,183 +1,188 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
+import { useThemeName } from '../hooks';
+import { INFRA, STACK } from '../infra';
+import Aurora from '../reactbits/Aurora';
+import BlurText from '../reactbits/BlurText';
+import CountUp from '../reactbits/CountUp';
+import GradientText from '../reactbits/GradientText';
+import ShinyText from '../reactbits/ShinyText';
+import StarBorder from '../reactbits/StarBorder';
 import { Arrow, Mark, Moon, Sun } from './Icons';
+import { Card } from './Panel';
+import Topology from './Topology';
 
-const NODE = {
-  mum: { x: 86, y: 222, label: 'Mumbai' },
-  hyd: { x: 230, y: 62, label: 'Hyderabad' },
-  sin: { x: 374, y: 222, label: 'Singapore' },
-};
+const ALL_OK = { 'mum-hyd': 'ok', 'hyd-sin': 'ok', 'mum-sin': 'ok' };
+const MUMBAI_CUT = { 'mum-hyd': 'cut', 'hyd-sin': 'ok', 'mum-sin': 'cut' };
+const UP = { mum: { state: 'up' }, hyd: { state: 'up' }, sin: { state: 'up' } };
 
-// One loop: normal operation, a cut, both sides still writing, then recovery.
+// One loop of the story the product exists for.
 const PHASES = [
-  { caption: 'All regions connected and in sync', cut: false, writing: false },
-  { caption: 'Network failure: Mumbai is cut off', cut: true, writing: false },
-  { caption: 'Both sides keep accepting reports', cut: true, writing: true },
-  { caption: 'Link restored: merged, nothing lost', cut: false, writing: false },
+  { links: ALL_OK, writing: [], tone: 'ok', caption: 'Three regions on two clouds, connected and in sync' },
+  { links: MUMBAI_CUT, writing: [], tone: 'bad', caption: 'Link failure: Mumbai can no longer reach the other regions' },
+  { links: MUMBAI_CUT, writing: ['mum', 'hyd'], tone: 'bad', caption: 'Both sides keep accepting writes while disconnected' },
+  { links: ALL_OK, writing: [], tone: 'ok', caption: 'Link restored: every region merges, nothing is silently lost' },
 ];
 
-function NetworkVisual() {
-  const [phase, setPhase] = useState(0);
+function LivePreview() {
+  const [i, setI] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setPhase((p) => (p + 1) % PHASES.length), 2800);
+    const id = setInterval(() => setI((p) => (p + 1) % PHASES.length), 3000);
     return () => clearInterval(id);
   }, []);
-  const { cut, writing, caption } = PHASES[phase];
-
-  const links = [
-    ['mum', 'hyd', true],
-    ['mum', 'sin', true],
-    ['hyd', 'sin', false],
-  ];
-
+  const phase = PHASES[i];
   return (
-    <div className="network-card" aria-label="Animated illustration of a network failure and recovery">
-      <svg viewBox="0 0 460 290" width="100%" role="img">
-        {links.map(([a, b, touchesMumbai]) => {
-          const broken = cut && touchesMumbai;
-          return (
-            <motion.line
-              key={`${a}-${b}`}
-              x1={NODE[a].x} y1={NODE[a].y} x2={NODE[b].x} y2={NODE[b].y}
-              strokeWidth="2"
-              strokeLinecap="round"
-              animate={{
-                stroke: broken ? 'var(--bad)' : 'var(--accent)',
-                strokeDasharray: broken ? '6 7' : '0 0',
-                opacity: broken ? 0.95 : 0.8,
-              }}
-              transition={{ duration: 0.5 }}
-            />
-          );
-        })}
-
-        {Object.entries(NODE).map(([id, n]) => {
-          const isCut = cut && id === 'mum';
-          const pulse = writing && (id === 'mum' || id === 'hyd');
-          return (
-            <g key={id}>
-              {pulse && (
-                <motion.circle
-                  cx={n.x} cy={n.y} r="30" fill="none" strokeWidth="2" stroke="var(--accent)"
-                  initial={{ r: 28, opacity: 0.7 }}
-                  animate={{ r: 46, opacity: 0 }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
-                />
-              )}
-              <motion.circle
-                cx={n.x} cy={n.y} r="30" strokeWidth="2"
-                fill="var(--surface)"
-                animate={{ stroke: isCut ? 'var(--bad)' : 'var(--border-strong)' }}
-                transition={{ duration: 0.4 }}
-              />
-              <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize="12" fontWeight="650" fill="var(--text)">
-                {id.toUpperCase()}
-              </text>
-              <text x={n.x} y={id === 'hyd' ? n.y - 42 : n.y + 54} textAnchor="middle" fontSize="12" fill="var(--muted)">
-                {n.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      <div className="caption">
-        <motion.span
-          key={phase}
-          className={`dot ${cut ? 'bad' : 'ok'}`}
-          initial={{ scale: 0.6 }}
-          animate={{ scale: 1 }}
-        />
-        <motion.span key={`c${phase}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-          {caption}
+    <Card className="preview-card">
+      <div className="preview-bar">
+        <span className="lights"><i /><i /><i /></span>
+        <span className={`dot ${phase.tone} live`} />
+        <motion.span key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          {phase.caption}
         </motion.span>
       </div>
-    </div>
+      <Topology nodes={UP} links={phase.links} meta={INFRA.cloud} writing={phase.writing} />
+    </Card>
   );
 }
 
 const rise = (delay = 0) => ({
-  initial: { opacity: 0, y: 18 },
+  initial: { opacity: 0, y: 22 },
   animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.7, delay, ease: [0.22, 0.61, 0.36, 1] },
+});
+
+const inView = (delay = 0) => ({
+  initial: { opacity: 0, y: 26 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
   transition: { duration: 0.6, delay, ease: [0.22, 0.61, 0.36, 1] },
 });
 
-export default function Hero({ onEnter, theme, onToggleTheme, results }) {
-  const ours = results?.systems?.ours;
-  const base = results?.systems?.lww_baseline;
+const FEATURES = [
+  ['01', 'Always writable', 'Each region saves a write locally and answers at once. A broken link between regions never blocks anyone from recording data.'],
+  ['02', 'Nothing silently lost', 'Every change is kept as an event. When two regions edited the same thing while apart, both versions are kept for a person to decide.'],
+  ['03', 'History you can verify', 'Each event carries the hash of the one before it. Editing or deleting stored history is detectable, and forged events are refused.'],
+];
+
+export default function Hero({ onEnter, onToggleTheme, results }) {
+  const theme = useThemeName();
+  const dark = theme === 'dark';
+  const baselineLoss = results?.systems?.lww_baseline?.silent_overwrites_pct ?? 42.2;
+  const trials = results?.runs ?? 100;
 
   return (
-    <motion.section className="hero" exit={{ opacity: 0, y: -16 }} transition={{ duration: 0.3 }}>
+    <motion.div className="hero" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+      <div className="hero-bg">
+        <Aurora
+          colorStops={dark ? ['#4f5bff', '#3fe0a2', '#5fd0ff'] : ['#8b9bff', '#7fe9c9', '#9fd8ff']}
+          amplitude={1.05} blend={0.62} speed={0.7} lightMode={!dark} opacity={dark ? 0.72 : 0.7}
+        />
+      </div>
+
       <nav className="hero-nav">
-        <span className="brand" style={{ cursor: 'default' }}>
-          <Mark className="brand-mark" />
-          CodeAstra
-        </span>
+        <span className="brand"><Mark className="brand-mark" />CodeAstra</span>
+        <div className="hero-links">
+          <button onClick={() => onEnter('overview')}>Console</button>
+          <button onClick={() => onEnter('infrastructure')}>Infrastructure</button>
+          <button onClick={() => onEnter('compare')}>Compare</button>
+        </div>
         <span className="spacer" />
         <button className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
-          {theme === 'dark' ? <Sun /> : <Moon />}
+          {dark ? <Sun /> : <Moon />}
         </button>
-        <button className="btn" onClick={onEnter}>Open dashboard</button>
+        <button className="btn btn-glass" onClick={() => onEnter('overview')}>Open console</button>
       </nav>
 
-      <div className="hero-main">
-        <div>
-          <motion.span className="eyebrow" {...rise(0)}>Geo-distributed replication</motion.span>
-          <motion.h1 {...rise(0.08)}>Disaster reports that survive a network failure.</motion.h1>
-          <motion.p className="lede" {...rise(0.16)}>
-            When a region loses its connection, it keeps accepting reports. When the link returns,
-            every region merges to the same state, and nothing is silently overwritten.
-          </motion.p>
-          <motion.div className="cta-row" {...rise(0.24)}>
-            <button className="btn btn-primary btn-lg" onClick={onEnter}>
-              Open dashboard <Arrow />
-            </button>
-            <a className="btn btn-lg" href="#how" onClick={(e) => { e.preventDefault(); document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' }); }}>
-              How it works
-            </a>
-          </motion.div>
-          <motion.div className="hero-stats" {...rise(0.34)}>
-            <div className="hero-stat">
-              <b>{ours ? `${ours.silent_overwrites_pct}%` : '0%'}</b>
-              <span>edits silently lost{base ? `, vs ${base.silent_overwrites_pct}% for last-writer-wins` : ''}</span>
-            </div>
-            <div className="hero-stat">
-              <b>2 clouds</b>
-              <span>AWS and Azure, three regions</span>
-            </div>
-            <div className="hero-stat">
-              <b>Hash-chained</b>
-              <span>history, tamper-evident</span>
-            </div>
-          </motion.div>
+      <header className="hero-center">
+        <motion.span className="live-chip" {...rise(0)}>
+          <span className="dot ok live" />
+          <ShinyText
+            text="Running on AWS and Azure across three regions"
+            color={dark ? '#a9b3c6' : '#586275'} shineColor={dark ? '#ffffff' : '#0f131c'} speed={3}
+          />
+        </motion.span>
+
+        <div className="hero-title" role="heading" aria-level="1">
+          <BlurText text="Stay writable when the" className="blur-line" delay={70} animateBy="words" direction="top" />
+          <GradientText
+            className="title-gradient"
+            colors={dark ? ['#8b9bff', '#5fd0ff', '#45e6b4', '#8b9bff'] : ['#4f5bff', '#2f8bff', '#0fae84', '#4f5bff']}
+            animationSpeed={7}
+          >
+            link between regions breaks.
+          </GradientText>
         </div>
 
-        <motion.div {...rise(0.2)}>
-          <NetworkVisual />
-        </motion.div>
-      </div>
+        <motion.p className="lede" {...rise(0.35)}>
+          A replicated data service that keeps running through a network partition. Regions accept writes
+          while cut off, then merge to one state, with every conflict visible and a history you can verify.
+        </motion.p>
 
-      <div className="how" id="how">
-        {[
-          ['01', 'Always writable', 'Every region saves a report locally and replies at once. The network is never in the way of recording an incident.'],
-          ['02', 'Nothing silently lost', 'Edits are kept as events. When two regions disagree, both versions are shown to an operator instead of one being discarded.'],
-          ['03', 'Provable history', 'Each event is chained to the one before it, so changing or removing stored history is detectable on any region.'],
-        ].map(([n, title, text], i) => (
-          <motion.div
-            className="how-item"
-            key={n}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.5, delay: i * 0.08 }}
+        <motion.div className="cta-row" {...rise(0.45)}>
+          <StarBorder
+            as="button" theme={theme} className="star-cta" radius={12} duration={3.5} glow={0.8}
+            color={dark ? '#8b9bff' : '#4f5bff'} onClick={() => onEnter('overview')}
           >
-            <span className="n">{n}</span>
-            <h3>{title}</h3>
-            <p>{text}</p>
-          </motion.div>
-        ))}
-      </div>
+            Open the console <Arrow />
+          </StarBorder>
+          <button className="btn btn-glass btn-lg" onClick={() => onEnter('infrastructure')}>
+            See the live infrastructure
+          </button>
+        </motion.div>
+      </header>
 
-      <div className="hero-foot">CodeAstra 2.0 · Cloud Computing and Distributed Systems</div>
-    </motion.section>
+      <motion.div className="hero-preview" {...rise(0.55)}>
+        <LivePreview />
+      </motion.div>
+
+      <section className="section">
+        <motion.div {...inView()}>
+          <span className="section-kicker">Measured, not claimed</span>
+          <h2>What a link failure costs, on each system.</h2>
+        </motion.div>
+        <div className="hero-stats" style={{ marginTop: 28 }}>
+          {[
+            { big: <><CountUp to={baselineLoss} duration={1.6} />%</>, bad: true, text: `of acknowledged edits silently lost by a last-writer-wins store, across ${trials} fault trials` },
+            { big: '0%', text: 'silently lost by this engine in the same trials, with identical operations' },
+            { big: <CountUp to={72} duration={1.4} />, text: 'automated tests, including random partitions, crashes and clock skew' },
+            { big: <>&lt;1 s</>, text: 'to converge after a link is restored, measured across AWS and Azure' },
+          ].map((s, k) => (
+            <motion.div key={k} {...inView(k * 0.07)}>
+              <Card className="hero-stat">
+                <div className={`big ${s.bad ? 'bad' : 'grad-text'}`}>{s.big}</div>
+                <p>{s.text}</p>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <motion.div {...inView()}>
+          <span className="section-kicker">How it works</span>
+          <h2>Built for the moment the network lets you down.</h2>
+        </motion.div>
+        <div className="grid-3" style={{ marginTop: 28 }}>
+          {FEATURES.map(([n, title, text], k) => (
+            <motion.div key={n} {...inView(k * 0.08)} style={{ height: '100%' }}>
+              <Card className="feature">
+                <span className="n">{n}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section" style={{ textAlign: 'center' }}>
+        <motion.span className="section-kicker" {...inView()}>What it runs on</motion.span>
+        <motion.div className="stack-strip" style={{ marginTop: 20 }} {...inView(0.08)}>
+          {STACK.map((s) => <span className="stack-chip" key={s}>{s}</span>)}
+        </motion.div>
+      </section>
+
+      <footer className="hero-foot">CodeAstra 2.0 · Cloud Computing and Distributed Systems</footer>
+    </motion.div>
   );
 }

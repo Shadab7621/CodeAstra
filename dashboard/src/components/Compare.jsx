@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { api } from '../api';
 import { NODES } from '../config';
 import { useCluster } from '../hooks';
 import { sleep } from '../lib';
+import CountUp from '../reactbits/CountUp';
+import Panel from './Panel';
 import { useToast } from './Toast';
 
-const MUM_TEXT = 'Road flooded, vehicles stranded';
-const HYD_TEXT = 'Water at knee height near the bridge';
+const BASE_TEXT = 'Camp 4 supply record: 500 blankets in stock';
+const MUM_TEXT = 'Mumbai office: 120 blankets dispatched to Camp 4';
+const HYD_TEXT = 'Hyderabad office: 80 blankets dispatched to Camp 7';
 
 async function waitFor(check, timeoutMs = 10000) {
   const start = Date.now();
@@ -38,15 +41,15 @@ async function outcome(urls, reportId) {
     final,
     entries: conflicts.filter((c) => c.report_id === reportId).length,
     rows: [
-      { label: "Mumbai's description edit", result: where('description', MUM_TEXT) },
-      { label: "Hyderabad's description edit", result: where('description', HYD_TEXT) },
-      { label: "Hyderabad's severity edit (to 5)", result: where('severity', 5) },
+      { label: "Mumbai's edit, made while cut off", result: where('description', MUM_TEXT) },
+      { label: "Hyderabad's edit to the same record", result: where('description', HYD_TEXT) },
+      { label: "Hyderabad's priority change (to 5)", result: where('severity', 5) },
     ],
   };
 }
 
 const RESULT = {
-  final: { cls: 'ok', text: 'In the final report' },
+  final: { cls: 'ok', text: 'In the final record' },
   ledger: { cls: 'info', text: 'Kept in the ledger' },
   lost: { cls: 'bad', text: 'Silently lost' },
 };
@@ -57,47 +60,41 @@ function Benchmark({ results }) {
   const b = results.systems.lww_baseline;
   const max = Math.max(o.silent_overwrites_pct, b.silent_overwrites_pct, 1);
   const Bar = ({ label, pct, tone }) => (
-    <div style={{ display: 'grid', gap: 6 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-        <span>{label}</span><strong className="num">{pct.toFixed(1)}%</strong>
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'baseline' }}>
+        <span>{label}</span>
+        <strong className="num" style={{ fontSize: 20 }}><CountUp to={pct} duration={1.2} />%</strong>
       </div>
       <div className="bar-track">
         <motion.div
-          className={`bar-fill ${tone}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${(pct / max) * 100}%` }}
-          transition={{ duration: 0.9, ease: [0.22, 0.61, 0.36, 1] }}
-          style={{ minWidth: pct > 0 ? 4 : 0 }}
+          className={`bar-fill ${tone}`} initial={{ width: 0 }} whileInView={{ width: `${(pct / max) * 100}%` }}
+          viewport={{ once: true }} transition={{ duration: 1, ease: [0.22, 0.61, 0.36, 1] }}
+          style={{ minWidth: pct > 0 ? 6 : 0 }}
         />
       </div>
     </div>
   );
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <span className="panel-title">Measured results</span>
-        <span className="spacer" />
-        <span className="muted" style={{ fontSize: 13 }}>{results.runs} trials, {results.setup}</span>
-      </div>
-      <div className="panel-body stack" style={{ gap: 16 }}>
-        <Bar label="Acknowledged edits silently lost, last-writer-wins baseline" pct={b.silent_overwrites_pct} tone="bad" />
-        <Bar label="Acknowledged edits silently lost, our engine" pct={o.silent_overwrites_pct} tone="ok" />
-        <div className="table-wrap">
+    <Panel title="Measured over many failures" hint={`${results.runs} randomised trials per system: ${results.setup}`}>
+      <div className="stack" style={{ gap: 18 }}>
+        <Bar label="Acknowledged edits silently lost by the last-writer-wins baseline" pct={b.silent_overwrites_pct} tone="bad" />
+        <Bar label="Acknowledged edits silently lost by our engine" pct={o.silent_overwrites_pct} tone="ok" />
+        <div className="table-wrap" style={{ margin: '0 -20px -20px' }}>
           <table>
-            <thead><tr><th>Scenario</th><th>Engine passed</th><th>Baseline passed</th></tr></thead>
+            <thead><tr><th>Failure scenario</th><th>Engine passed</th><th>Baseline passed</th></tr></thead>
             <tbody>
               {results.scenarios.map((s) => (
                 <tr key={s.name}>
-                  <td>{s.name.replace(/_/g, ' ')}</td>
-                  <td className="num">{s.ours_pass} of {s.runs}</td>
-                  <td className="num">{s.lww_pass} of {s.runs}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{s.name.replace(/_/g, ' ')}</td>
+                  <td className="num"><span className="pill ok plain">{s.ours_pass} of {s.runs}</span></td>
+                  <td className="num"><span className={`pill plain ${s.lww_pass === s.runs ? 'ok' : 'bad'}`}>{s.lww_pass} of {s.runs}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }
 
@@ -111,7 +108,6 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
   const started = useRef(0);
 
   const say = (text) => setLog((l) => [...l, { t: ((Date.now() - started.current) / 1000).toFixed(1), text }]);
-
   const reachable = (snap) => NODES.every((n) => snap.nodes[n] && snap.nodes[n].state === 'up');
   const ready = reachable(engine) && reachable(baseline);
 
@@ -123,16 +119,16 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
     setVerdict(null);
     started.current = Date.now();
     try {
-      say('Resetting both clusters');
+      say('Resetting both systems to empty');
       await each(async (u) => {
         await Promise.all(NODES.map((n) => api.resume(u[n]).catch(() => {})));
         await Promise.all(NODES.map((n) => api.reset(u[n])));
       });
       await sleep(700);
 
-      say('Mumbai records a flooding report on both systems');
+      say('Mumbai creates a shared record, and it replicates to every region');
       const ids = await each(async (u) => (await api.create(u.mum, {
-        incident_type: 'flood', severity: 3, description: 'Flooding on the main road',
+        incident_type: 'medical', severity: 3, description: BASE_TEXT,
         reporter: 'scenario', location: { lat: 19.076, lon: 72.877 },
       })).report_id);
       const seenEverywhere = await waitFor(async () => {
@@ -144,9 +140,9 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
         }
         return true;
       });
-      if (!seenEverywhere) throw new Error('The report did not reach every region');
+      if (!seenEverywhere) throw new Error('The record did not reach every region');
 
-      say('Network failure: Mumbai is cut off from Hyderabad and Singapore');
+      say('Link failure: Mumbai can no longer reach Hyderabad or Singapore');
       await each(async (u) => {
         for (const other of ['hyd', 'sin']) {
           await Promise.all([api.block(u.mum, other), api.block(u[other], 'mum')]);
@@ -154,7 +150,7 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
       });
       await sleep(400);
 
-      say('Mumbai edits the description. Hyderabad edits the description and raises the severity');
+      say('While apart, Mumbai and Hyderabad both edit the same record');
       await each(async (u, i) => {
         await api.patch(u.mum, ids[i], { description: MUM_TEXT });
         await api.patch(u.hyd, ids[i], { description: HYD_TEXT });
@@ -162,14 +158,14 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
       });
       await sleep(500);
 
-      say('Network restored. Waiting for the regions to merge');
+      say('Link restored. Waiting for the regions to merge');
       await each(async (u) => {
         for (const other of ['hyd', 'sin']) {
           await Promise.all([api.unblock(u.mum, other), api.unblock(u[other], 'mum')]);
         }
       });
       const merged = await Promise.all(clusters.map((u) => waitFor(converged(u), 12000)));
-      say(merged.every(Boolean) ? 'Both systems converged' : 'A system did not converge in time');
+      say(merged.every(Boolean) ? 'Both systems converged to one state' : 'A system did not converge in time');
 
       const [eng, base] = await Promise.all(clusters.map((u, i) => outcome(u, ids[i])));
       setVerdict({ eng, base });
@@ -195,71 +191,65 @@ export default function Compare({ engineUrls, baselineUrls, results }) {
 
   return (
     <div className="stack">
-      <section className="panel">
-        <div className="panel-head">
-          <span className="panel-title">Same failure, two systems</span>
-          <span className="spacer" />
-          <button className="btn btn-primary" onClick={runScenario} disabled={running || !ready}>
-            {running ? 'Running...' : 'Run the partition scenario'}
-          </button>
-        </div>
-        <div className="panel-body">
-          <p className="muted" style={{ maxWidth: '72ch' }}>
-            This cuts Mumbai off, lets Mumbai and Hyderabad each edit the same report, then reconnects. Both systems
-            receive exactly the same actions. Watch what each one keeps.
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Same failure, two systems</h1>
+          <p className="page-sub">
+            The link to Mumbai is cut, Mumbai and Hyderabad both edit one record, then the link returns. Our engine and a
+            last-writer-wins store receive exactly the same actions.
           </p>
-          {!ready && (
-            <p style={{ marginTop: 12, color: 'var(--warn)' }}>
-              Both local clusters must be running (engine on ports 8001 to 8003, baseline on 9001 to 9003).
-            </p>
-          )}
         </div>
-      </section>
+        <span className="spacer" />
+        <button className="btn btn-primary btn-lg" onClick={runScenario} disabled={running || !ready}>
+          {running ? 'Running...' : 'Run the link-failure scenario'}
+        </button>
+      </div>
 
-      <div className="compare-grid">
-        <section className="panel">
-          <div className="panel-head"><span className="panel-title">Activity</span></div>
-          <div className="panel-body">
-            {log.length === 0 ? <p className="muted">Press the button to start.</p> : (
-              <div className="log">
-                <AnimatePresence initial={false}>
-                  {log.map((l, i) => (
-                    <motion.div key={i} className="log-line" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}>
-                      <time>{l.t}s</time><span>{l.text}</span>
-                    </motion.div>
+      {!ready && (
+        <div className="banner warn">
+          <span className="dot warn" />
+          Both local clusters must be running: the engine on ports 8001 to 8003 and the baseline on 9001 to 9003.
+        </div>
+      )}
+
+      <div className="grid-2" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.15fr)' }}>
+        <Panel title="What is happening">
+          {log.length === 0 ? <p className="muted">Press the button to start.</p> : (
+            <div className="log">
+              <AnimatePresence initial={false}>
+                {log.map((l, i) => (
+                  <motion.div key={i} className="log-line" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+                    <time>{l.t}s</time><span>{l.text}</span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="What each system kept" flush>
+          {!verdict ? <div className="empty">The result appears here when the scenario finishes.</div> : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Edit</th><th>Our engine</th><th>Last-writer-wins</th></tr></thead>
+                <tbody>
+                  {verdict.eng.rows.map((row, i) => (
+                    <motion.tr key={row.label} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.14 }}>
+                      <td style={{ fontWeight: 600 }}>{row.label}</td>
+                      <td><span className={`pill ${RESULT[row.result].cls}`}>{RESULT[row.result].text}</span></td>
+                      <td><span className={`pill ${RESULT[verdict.base.rows[i].result].cls}`}>{RESULT[verdict.base.rows[i].result].text}</span></td>
+                    </motion.tr>
                   ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head"><span className="panel-title">What each system kept</span></div>
-          <div className="panel-body flush">
-            {!verdict ? <div className="empty">The result appears here when the scenario finishes.</div> : (
-              <div className="table-wrap">
-                <table className="verdict">
-                  <thead><tr><th>Edit</th><th>Our engine</th><th>Last-writer-wins</th></tr></thead>
-                  <tbody>
-                    {verdict.eng.rows.map((row, i) => (
-                      <motion.tr key={row.label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.12 }}>
-                        <td>{row.label}</td>
-                        <td><span className={`pill ${RESULT[row.result].cls}`}>{RESULT[row.result].text}</span></td>
-                        <td><span className={`pill ${RESULT[verdict.base.rows[i].result].cls}`}>{RESULT[verdict.base.rows[i].result].text}</span></td>
-                      </motion.tr>
-                    ))}
-                    <tr>
-                      <td>Disagreements flagged for review</td>
-                      <td className="num">{verdict.eng.entries}</td>
-                      <td className="num muted">0 (no record kept)</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </section>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>Disagreements flagged for review</td>
+                    <td className="num">{verdict.eng.entries}</td>
+                    <td className="num muted">0 (no record kept)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
       </div>
 
       <Benchmark results={results} />

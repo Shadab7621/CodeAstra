@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+﻿import { createContext, useCallback, useContext, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 
 const ToastContext = createContext(() => {});
 

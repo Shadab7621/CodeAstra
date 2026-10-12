@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api } from './api';
 import { NODES } from './config';
 
+export const ThemeContext = createContext('dark');
+export const useThemeName = () => useContext(ThemeContext);
+
 /** Light or dark, remembered in the browser, defaulting to the system setting. */
 export function useTheme() {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light');
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark');
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('codeastra.theme', theme); } catch { /* private mode */ }
@@ -15,15 +18,18 @@ export function useTheme() {
 
 async function readNode(base) {
   try {
-    const [status, reports, conflicts, heads] = await Promise.all([
-      api.status(base),
+    const started = performance.now();
+    const statusCall = api.status(base).then((s) => ({ s, rtt: Math.round(performance.now() - started) }));
+    const [timed, reports, conflicts, heads] = await Promise.all([
+      statusCall,
       api.reports(base),
       api.conflicts(base),
       api.heads(base).catch(() => null), // the baseline has no audit endpoints
     ]);
     return {
       state: 'up',
-      status,
+      status: timed.s,
+      rtt: timed.rtt, // round trip from this browser to the node, in milliseconds
       reports: reports.reports,
       conflicts: conflicts.conflicts,
       heads: heads ? heads.heads : null,
@@ -59,11 +65,4 @@ export function useCluster(urls) {
   }, [key]);
 
   return snapshot;
-}
-
-/** Remembers which values changed since the last render, to flash them briefly. */
-export function usePrevious(value) {
-  const ref = useRef(value);
-  useEffect(() => { ref.current = value; });
-  return ref.current;
 }

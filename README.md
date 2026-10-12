@@ -65,12 +65,20 @@ python -m http.server 4173 --directory dashboard\dist         # serve the dashbo
 
 To change it: `cd dashboard`, `npm install`, `npm run dev` (hot reload), then `npm run build`.
 
-- **Engine / Baseline / Compare** tabs, and a **Local / Cloud** switch.
-- Cut and restore links, simulate a crash or a fast clock, create and edit reports, decide conflicts,
-  verify the hash chains, and run the side-by-side partition scenario.
+- **Overview**: regions, records, conflict ledger and history check, with an Engine / Baseline switch.
+- **Infrastructure**: the live deployment. Provider zones (AWS, Azure), each server's machine type,
+  address, round-trip latency, chain head, and the replication links between regions.
+- **Compare**: the same link failure run on our engine and on the last-writer-wins baseline.
+- A **Local / Cloud** switch chooses which cluster the console talks to.
+- Cut and restore links, simulate a crash or a fast clock, create and edit records, decide conflicts,
+  verify the hash chains.
+- Visual components (aurora background, spotlight cards, text effects) are from
+  [React Bits](https://reactbits.dev), kept in `dashboard/src/reactbits` with their license
+  (MIT + Commons Clause).
 - **Settings** holds the cloud addresses and the admin token (token is kept for the browser session only).
-- Handy URL options: `#compare` opens a view directly, `?theme=dark` forces a theme,
-  `?motion=off` skips animations, `?autorun=1` (with `#compare`) starts the scenario.
+- Handy URL options: `#overview`, `#infrastructure` or `#compare` opens a view directly,
+  `?env=cloud` starts on the cloud cluster, `?theme=light` forces a theme, `?motion=off` skips
+  animations, `?autorun=1` (with `#compare`) starts the scenario.
 
 ## Benchmark: engine vs last-writer-wins
 
