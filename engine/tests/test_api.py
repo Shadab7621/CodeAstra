@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from engine.app.config import Config
 from engine.app.main import create_app
+from engine.app.store import seal_event
 
 REPORT = {
     "incident_type": "flood",
@@ -97,12 +98,12 @@ def test_conflict_ledger_and_operator_resolve(client):
     assert client.get("/conflicts").json() == {"conflicts": []}
 
     # Hyderabad edited the same field without having seen Mumbai's edit.
-    theirs = {
+    theirs = seal_event({
         "event_id": "hyd-edit-1", "report_id": rid, "origin": "hyd", "seq": 1,
         "hlc": {"wall": 9_999_999_999_999, "counter": 0, "node": "hyd"},
         "op": "update", "fields": {"description": "water knee high"},
         "client_ts": "2026-10-12T10:00:00+00:00", "vv": {"mum": 1, "hyd": 1},
-    }
+    })
     assert client.app.state.node.store.insert_remote(theirs) is True
     assert client.app.state.node.store.insert_remote(theirs) is False  # idempotent
 

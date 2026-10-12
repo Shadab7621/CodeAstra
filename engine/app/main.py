@@ -168,8 +168,21 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
             "paused": state.paused,
             "event_count": state.store.event_count(),
             "state_hash": state.view()[2],
+            "integrity": {"rejected_events": state.store.violation_count,
+                          "recent": state.store.violations[-5:]},
             "peers": state.sync.peer_status(),
         }
+
+    @app.get("/audit/verify")
+    def audit_verify():
+        """Recompute the whole hash chain from storage. ok=false means history was altered."""
+        return {"node_id": config.node_id, **state.store.verify_chain(),
+                "violations": state.store.violations[-20:]}
+
+    @app.get("/audit/heads")
+    def audit_heads():
+        """Newest (seq, hash) per origin. Compare across nodes: same seq must mean same hash."""
+        return {"node_id": config.node_id, "heads": state.store.heads()}
 
     @app.get("/state-hash")
     def get_state_hash():

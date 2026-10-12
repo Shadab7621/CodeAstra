@@ -192,6 +192,22 @@ these endpoints require the HTTP header `X-Admin-Token: <token>` and otherwise r
 - The token is sent over plain HTTP, so it can be sniffed on an untrusted network. HTTPS is
   the production answer; it is out of scope for the prototype.
 
+### 3.9 Tamper-evident log (v1.4) - additive
+
+- Every event now also carries `prev_hash` and `event_hash`. `event_hash` is the SHA-256 of the
+  event's canonical JSON (all other fields plus `prev_hash`); `prev_hash` is the previous event
+  from the same origin (64 zeros for the first). B and C can ignore both.
+- A node rejects a received event whose hash does not match or whose link is broken. Nothing is
+  applied, and the rejection is counted. An honest peer's copy is accepted on the next round.
+- `GET /audit/verify` recomputes the whole chain from storage: `{ ok, events_checked,
+  legacy_events, origins: {id: {events, ok, first_bad_seq, problem, head_seq, head_hash}},
+  rejected_events, violations }`. `ok: false` means stored history was altered or removed.
+- `GET /audit/heads` returns `{ heads: {origin: {seq, hash}} }`. Two nodes with the same `seq`
+  for an origin must show the same `hash`.
+- `GET /status` has `integrity: { rejected_events, recent }`.
+- Both audit endpoints are read-only and need no token. Events written before this version are
+  counted as `legacy_events` and are not rejected.
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.

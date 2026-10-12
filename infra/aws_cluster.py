@@ -143,7 +143,9 @@ curl -s -m 5 http://127.0.0.1:{port}/healthz && echo "DIAG local healthcheck ok"
 """
 
 
-def up(nodes, public=False):
+def up(nodes, public=False, extra_peers=None):
+    """extra_peers: {node id: url} for nodes that run elsewhere, e.g. on Google Cloud."""
+    extra_peers = extra_peers or {}
     token = admin_token()
     if public:
         print("PUBLIC mode: node ports are open to everyone; the admin token is the protection.")
@@ -162,8 +164,9 @@ def up(nodes, public=False):
     for n in nodes:
         region, port = NODES[n]
         client = ec2(region)
-        peers = ",".join(f"{p}=http://{eips[p]['PublicIp']}:{NODES[p][1]}"
-                         for p in nodes if p != n)
+        peer_list = [f"{p}=http://{eips[p]['PublicIp']}:{NODES[p][1]}" for p in nodes if p != n]
+        peer_list += [f"{k}={v}" for k, v in sorted(extra_peers.items())]
+        peers = ",".join(peer_list)
         token_tag = hashlib.sha1(token.encode()).hexdigest()[:6]
         config_hash = hashlib.sha1(
             f"{USER_DATA_VERSION}|{peers}|{token_tag}".encode()).hexdigest()[:10]
@@ -173,6 +176,8 @@ def up(nodes, public=False):
         for p in nodes:
             if p != n:
                 allow(client, sg_id, port, f"{eips[p]['PublicIp']}/32")
+        for url in extra_peers.values():
+            allow(client, sg_id, port, url.split("//")[1].split(":")[0] + "/32")
 
         instance = find_instance(client, n)
         if instance and tag_value(instance, "peers-hash") != config_hash:
@@ -326,11 +331,21 @@ def main():
         sys.exit(__doc__)
     cmd, args = sys.argv[1], sys.argv[2:]
     if cmd == "up":
-        public = "--public" in args
-        names = [a for a in args if a != "--public"]
+        public, names, extra = False, [], {}
+        it = iter(args)
+        for a in it:
+            if a == "--public":
+                public = True
+            elif a == "--peer":                      # --peer sin=http://1.2.3.4:8003
+                node_id, _, url = next(it, "").partition("=")
+                if node_id not in NODES or not url.startswith("http"):
+                    sys.exit("Usage: --peer <mum|hyd|sin>=http://<ip>:<port>")
+                extra[node_id] = url.rstrip("/")
+            else:
+                names.append(a)
         if not names or any(a not in NODES for a in names):
-            sys.exit("Usage: up [--public] <mum|hyd|sin> [more nodes]")
-        up(names, public)
+            sys.exit("Usage: up [--public] [--peer id=url] <mum|hyd|sin> [more nodes]")
+        up(names, public, extra)
     elif cmd == "status":
         status()
     elif cmd == "check":

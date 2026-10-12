@@ -52,6 +52,32 @@ The token (`infra\.admin_token`) is created on first deploy and is git-ignored. 
 `/admin/*`, `/sync` and conflict resolution; creating and reading reports stays open.
 Three small instances cost about three cents an hour, so run `down` when you are finished.
 
+## Tamper-evident history
+
+Every event is hash-chained to the previous one from the same node.
+
+```powershell
+python infra\tamper_demo.py          # edits a stored event behind the app's back, shows detection
+curl http://127.0.0.1:8001/audit/verify     # recompute a node's whole chain
+curl http://127.0.0.1:8001/audit/heads      # compare newest hashes across nodes
+```
+
+## Mixed cloud (AWS + Google Cloud)
+
+The same Docker image runs on either provider, and nodes find each other by public address.
+For example, Mumbai and Hyderabad on AWS and Singapore on Google Cloud:
+
+```powershell
+# one-time on the Google side: gcloud auth login ; gcloud config set project <id>
+python infra\gcp_cluster.py ip sin                         # reserve Singapore's address
+python infra\aws_cluster.py up --public --peer sin=http://<gcp-ip>:8003 mum hyd
+python infra\gcp_cluster.py up sin --peer mum=http://<mum-ip>:8001 --peer hyd=http://<hyd-ip>:8002
+python infra\gcp_cluster.py status                         # and: aws_cluster.py status
+python infra\gcp_cluster.py down                           # stop the Google side
+```
+
+`infra\gcp_cluster.py` has not yet been run against a real Google Cloud project.
+
 ## Run the engine locally (without Docker)
 
 ```powershell
