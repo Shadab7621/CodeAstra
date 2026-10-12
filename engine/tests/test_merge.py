@@ -309,3 +309,22 @@ def test_random_histories_converge_and_keep_the_invariants():
                     for b in writes:
                         if concurrent(a, b) and a["fields"][field] != b["fields"][field]:
                             assert {a["event_id"], b["event_id"]} <= recorded
+
+
+# ---- explanations: which value won and why ----------------------------------------------------
+
+def test_explanation_names_winner_and_rule():
+    _, conflicts = merged(create(), on_mum({"severity": 4}), on_hyd({"severity": 5}))
+    (entry,) = conflicts
+    assert entry["winner"] == {"event_id": "h1", "origin": "hyd", "value": 5}
+    text = entry["explanation"]
+    assert "Mumbai set 4" in text and "Hyderabad set 5" in text
+    assert "highest value wins" in text and "Kept 5 from Hyderabad" in text
+
+
+def test_explanation_for_open_conflict_asks_for_operator():
+    _, conflicts = merged(create(), on_mum({"description": "road flooded"}),
+                          on_hyd({"description": "bridge washed out"}))
+    (entry,) = conflicts
+    assert entry["status"] == "needs_operator" and entry["winner"] is None
+    assert "operator has to choose" in entry["explanation"]

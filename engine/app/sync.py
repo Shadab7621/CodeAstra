@@ -31,7 +31,8 @@ class Peer:
     id: Optional[str] = None  # learned from the first reply if not given in PEERS
     reachable: bool = False
     reason: Optional[str] = "never_contacted"
-    last_sync: Optional[float] = None
+    last_sync: Optional[float] = None       # monotonic, for "x seconds ago"
+    last_sync_wall: Optional[float] = None  # unix time, for display
 
 
 def parse_peers(specs: list[str]) -> list[Peer]:
@@ -55,6 +56,10 @@ class SyncManager:
         self._client = httpx.Client(timeout=2.0) if post is None else None
         self._post = post or self._http_post
         self._lock = threading.Lock()
+        # Recovery reports: one entry per outage, from the link going down to catching up.
+        self._ep_lock = threading.Lock()
+        self._track: dict[str, dict] = {}  # peer url -> outage tracking
+        self.episodes: list[dict] = []     # finished recovery reports, oldest first
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
@@ -75,10 +80,12 @@ class SyncManager:
             return 409, {"error": "epoch_mismatch",
                          "message": f"sender epoch {epoch}, mine {node.epoch}"}
         self._learn(sender, vv)
+        events = node.store.events_missing_from(vv, MAX_EVENTS_PER_SYNC)
+        self._sent(sender, len(events))
         return 200, {
             "node_id": node.config.node_id,
             "epoch": node.epoch,
-            "events": node.store.events_missing_from(vv, MAX_EVENTS_PER_SYNC),
+            "events": events,
             "vv": node.store.version_vector(),
         }
 
@@ -103,6 +110,7 @@ class SyncManager:
         if peer.id in node.blocked or node.paused:
             return self._mark(peer, False, "blocked" if peer.id in node.blocked else "self_paused")
 
+        self._reconnecting(peer)  # snapshot what this region holds before anything is replayed
         applied = node.apply_remote(body["events"], epoch)
         if epoch == node.epoch:
             self._learn(peer.id, body["vv"])
@@ -115,8 +123,120 @@ class SyncManager:
         peer.reachable, peer.reason = reachable, reason
         if reachable:
             peer.last_sync = time.monotonic()
+            peer.last_sync_wall = time.time()
+        self._track_outage(peer, reachable, applied)
         return {"id": peer.id or peer.url, "reachable": reachable, "reason": reason,
                 "applied": applied}
+
+    # ---- recovery reports ------------------------------------------------------------------
+    # An episode starts when a link that was working goes down, snapshots the region ("before"),
+    # snapshots it again when the link returns but before anything is replayed ("during", i.e.
+    # what the region held while cut off), and finishes once nothing more is being exchanged
+    # ("after"). The counts say what the reconnect actually did.
+
+    def _tracker(self, peer: Peer) -> dict:
+        return self._track.setdefault(peer.url, {
+            "was_up": False, "down_at": None, "before": None, "conflict_ids": set(),
+            "episode": None})
+
+    def _track_outage(self, peer: Peer, reachable: bool, applied: int) -> None:
+        with self._ep_lock:
+            t = self._tracker(peer)
+            starts_outage = not reachable and t["was_up"] and t["down_at"] is None
+            episode = t["episode"] if reachable else None
+        if starts_outage:
+            before = self.node.snapshot()
+            ids = {c["conflict_id"] for c in self.node.view()[1]}
+            with self._ep_lock:
+                t["down_at"], t["before"], t["conflict_ids"] = time.time(), before, ids
+            return
+        if not reachable:
+            return
+        finish = False
+        with self._ep_lock:
+            t["was_up"] = True
+            if episode is not None:
+                episode["received"] += applied
+                if applied > 0 or episode.pop("_busy", False):
+                    episode["_quiet"] = 0
+                else:
+                    episode["_quiet"] += 1
+                finish = episode["_quiet"] >= 2  # two idle rounds in a row: caught up
+        if finish:
+            self._finish(peer, t)
+
+    def _reconnecting(self, peer: Peer) -> None:
+        with self._ep_lock:
+            t = self._tracker(peer)
+            if t["down_at"] is None or t["episode"] is not None:
+                return
+        during = self.node.snapshot()
+        with self._ep_lock:
+            t["episode"] = {
+                "peer": peer.id, "status": "recovering",
+                "outage_started_at": t["down_at"], "reconnected_at": time.time(),
+                "before": t["before"], "during": during,
+                "received": 0, "sent": 0, "_quiet": 0,
+                "_violations": self.node.store.violation_count,
+            }
+
+    def _sent(self, sender: str, count: int) -> None:
+        if not count:
+            return
+        with self._ep_lock:
+            for peer in self.peers:
+                episode = self._track.get(peer.url, {}).get("episode")
+                if peer.id == sender and episode is not None:
+                    episode["sent"] += count
+                    episode["_busy"] = True
+
+    def _finish(self, peer: Peer, t: dict) -> None:
+        after = self.node.snapshot()
+        conflicts = [c for c in self.node.view()[1] if c["conflict_id"] not in t["conflict_ids"]]
+        with self._ep_lock:
+            ep = t["episode"]
+            if ep is None:
+                return
+            before_by_id = {r["report_id"]: r for r in ep["before"]["reports"]}
+            added = sum(1 for r in after["reports"] if r["report_id"] not in before_by_id)
+            changed = sum(1 for r in after["reports"]
+                          if r["report_id"] in before_by_id and r != before_by_id[r["report_id"]])
+            needs = sum(1 for c in conflicts if c["status"] == "needs_operator")
+            failed = self.node.store.violation_count - ep.pop("_violations")
+            ep.pop("_quiet", None)
+            ep.pop("_busy", None)
+            ep.update({
+                "status": "recovered", "recovered_at": time.time(), "after": after,
+                "outage_ms": int((ep["reconnected_at"] - ep["outage_started_at"]) * 1000),
+                "conflicts": {"new": len(conflicts), "needs_operator": needs,
+                              "auto_resolved": len(conflicts) - needs},
+                "failed": failed,
+                "changes": {"reports_added": added, "reports_changed": changed},
+            })
+            ep["summary"] = self._summary(ep)
+            self.episodes.append(ep)
+            del self.episodes[:-20]
+            t["episode"], t["down_at"], t["before"], t["conflict_ids"] = None, None, None, set()
+
+    @staticmethod
+    def _summary(ep: dict) -> str:
+        from .merge import NODE_NAMES
+        name = NODE_NAMES.get(ep["peer"], ep["peer"])
+        seconds = max(1, round(ep["outage_ms"] / 1000))
+        n = ep["conflicts"]
+        conflict_text = ("no conflicts" if n["new"] == 0 else
+                         f"{n['new']} conflict{'s' if n['new'] != 1 else ''} "
+                         f"({n['auto_resolved']} auto-resolved, {n['needs_operator']} waiting "
+                         "for an operator)")
+        return (f"Link to {name} restored after {seconds} s. {ep['received']} changes received, "
+                f"{ep['sent']} sent, {conflict_text}, {ep['failed']} failed.")
+
+    def recovery(self) -> dict:
+        """Finished recovery reports plus any in progress, newest last."""
+        with self._ep_lock:
+            open_ = [{k: v for k, v in t["episode"].items() if not k.startswith("_")}
+                     for t in self._track.values() if t["episode"] is not None]
+            return {"episodes": [dict(e) for e in self.episodes], "in_progress": open_}
 
     def _learn(self, peer_id: str, vv: dict) -> None:
         with self._lock:
@@ -128,8 +248,12 @@ class SyncManager:
         """Drop everything learned about peers (used when this node is reset)."""
         with self._lock:
             self.known.clear()
+        with self._ep_lock:
+            self._track.clear()
+            self.episodes.clear()
         for peer in self.peers:
             peer.reachable, peer.reason, peer.last_sync = False, "never_contacted", None
+            peer.last_sync_wall = None
 
     # ---- what we know about peers ----------------------------------------------------------
 
@@ -163,6 +287,7 @@ class SyncManager:
                                else peer.reason if peer else "not_configured"),
                     "last_sync_ms_ago": (int((now - peer.last_sync) * 1000)
                                          if peer and peer.last_sync is not None else None),
+                    "last_sync_at": peer.last_sync_wall if peer else None,
                     "pending_out": sum(max(0, seq - known.get(o, 0)) for o, seq in mine.items()),
                     "pending_in": sum(max(0, seq - mine.get(o, 0)) for o, seq in known.items()),
                     "blocked": blocked,

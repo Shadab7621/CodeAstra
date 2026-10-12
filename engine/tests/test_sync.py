@@ -329,3 +329,39 @@ def test_random_faults_always_converge_without_losing_acknowledged_writes():
             assert acked <= cluster.event_ids(name), f"seed {seed}: {name} lost a write"
             for report in cluster.c[name].get("/reports").json()["reports"]:
                 assert report["durability"] == "confirmed", f"seed {seed}"
+
+
+def test_recovery_report_after_partition(cluster):
+    """Cut a link, write on both sides, heal: each side gets one report that says what happened."""
+    cluster.sync()
+    rid = cluster.c["mum"].post("/reports", json=REPORT).json()["report_id"]
+    cluster.sync()
+    cluster.cut("mum", "hyd")
+    cluster.cut("mum", "sin")
+    cluster.sync(rounds=1)  # the failed pulls are what start an outage
+    cluster.c["mum"].patch(f"/reports/{rid}", json={"severity": 4})
+    cluster.c["hyd"].patch(f"/reports/{rid}", json={"severity": 5})
+    cluster.c["mum"].post("/reports", json={**REPORT, "description": "Second"})
+    cluster.sync(rounds=1)
+    assert cluster.c["mum"].get("/recovery").json()["episodes"] == []
+
+    cluster.heal()
+    cluster.sync(rounds=6)
+
+    episodes = cluster.c["mum"].get("/recovery").json()["episodes"]
+    assert episodes, "no recovery report was produced"
+    ep = next(e for e in episodes if e["peer"] == "hyd")
+    assert ep["status"] == "recovered" and ep["failed"] == 0
+    assert ep["received"] >= 1 and ep["sent"] >= 0
+    assert ep["conflicts"]["new"] == 1 and ep["conflicts"]["auto_resolved"] == 1
+    assert ep["before"]["event_count"] < ep["after"]["event_count"] or ep["changes"]
+    assert ep["before"]["state_hash"] != ep["after"]["state_hash"]
+    assert ep["summary"].startswith("Link to Hyderabad restored")
+    assert cluster.converged()
+
+
+def test_status_reports_last_sync_time(cluster):
+    assert cluster.peer("mum", "hyd")["last_sync_at"] is None
+    cluster.sync(rounds=1)
+    p = cluster.peer("mum", "hyd")
+    assert p["last_sync_at"] is not None and p["last_sync_ms_ago"] is not None

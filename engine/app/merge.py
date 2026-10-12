@@ -21,6 +21,8 @@ STATUS_ORDER = {"open": 0, "acknowledged": 1, "in_progress": 2, "resolved": 3}
 LOCATION_CONFLICT_M = 500
 _CONFLICT_NS = uuid.UUID("6f1d2c3a-0b7e-4a59-9c1d-5e2f8a7b4c10")
 
+NODE_NAMES = {"mum": "Mumbai", "hyd": "Hyderabad", "sin": "Singapore"}
+
 POLICY = {
     "severity": "severity: highest wins",
     "status": "status: most advanced wins",
@@ -129,8 +131,63 @@ def _conflicts(report_id, field, writes, resolves, frontier, value) -> list[dict
         }
         entry["status"], entry["resolution"] = _resolution(
             field, group, resolves, frontier_ids, value)
+        entry["winner"], entry["explanation"] = _explain(field, group, entry)
         entries.append(entry)
     return entries
+
+
+def _show(field: str, value) -> str:
+    if field == "location" and isinstance(value, dict):
+        return f"{value['lat']:.4f}, {value['lon']:.4f}"
+    text = str(value)
+    return text if len(text) <= 40 else text[:37] + "..."
+
+
+def _who(origin: str) -> str:
+    return NODE_NAMES.get(origin, origin)
+
+
+def _explain(field: str, group: list[dict], entry: dict):
+    """Plain-words answer to "which value won, and which rule decided it?".
+
+    Returns (winner, sentence). winner is the candidate that supplied the final value, or None
+    while an operator still has to choose. Display only: it never feeds back into the merge."""
+    seen = []  # one line per distinct (region, value), oldest first
+    for w in group:
+        item = f"{_who(w['origin'])} set {_show(field, w['fields'][field])}"
+        if item not in seen:
+            seen.append(item)
+    versions = ", ".join(seen[:3]) + (f" and {len(seen) - 3} more" if len(seen) > 3 else "")
+
+    resolution = entry["resolution"]
+    if resolution is None:
+        return None, (f"{versions}, at the same time, and no rule can pick between them safely. "
+                      "An operator has to choose.")
+
+    chosen = resolution["chosen_value"]
+    matching = [w for w in group if _canon(w["fields"][field]) == _canon(chosen)]
+    winner = None
+    if matching:
+        top = max(matching, key=_order)
+        winner = {"event_id": top["event_id"], "origin": top["origin"], "value": chosen}
+    kept = f"Kept {_show(field, chosen)}"
+    source = f" from {_who(winner['origin'])}" if winner else ""
+
+    policy = resolution["policy"]
+    if policy == POLICY["operator"]:
+        return winner, (f"{resolution.get('operator') or 'An operator'} reviewed the versions "
+                        f"({versions}) and chose {_show(field, chosen)}{source}.")
+    if policy == POLICY["severity"]:
+        return winner, (f"{versions}, at the same time. Severity can only go up, so the highest "
+                        f"value wins. {kept}{source}.")
+    if policy == POLICY["status"]:
+        return winner, (f"{versions}, at the same time. Status can only move forward, so the "
+                        f"most advanced one wins. {kept}{source}.")
+    if policy == POLICY["location"]:
+        return winner, (f"{versions}, at the same time and less than {LOCATION_CONFLICT_M} m "
+                        f"apart, so the most recent one wins. {kept}{source}.")
+    return winner, (f"{versions}, at the same time. A later edit by someone who had seen "
+                    f"all of them replaced them. Current value: {_show(field, chosen)}.")
 
 
 def _resolution(field, group, resolves, frontier_ids, value):
