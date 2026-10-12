@@ -46,10 +46,12 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
       </div>
 
       <div className="topbar-right">
-        <Segmented
-          id="env" label="Environment" value={env} onChange={onEnv}
-          options={[{ value: 'local', label: 'Local' }, { value: 'cloud', label: 'Cloud' }]}
-        />
+        {view !== 'logs' && (
+          <Segmented
+            id="env" label="Environment" value={env} onChange={onEnv}
+            options={[{ value: 'local', label: 'Local' }, { value: 'cloud', label: 'Cloud' }]}
+          />
+        )}
         <button className="icon-btn" onClick={onSettings} aria-label="Settings"><Gear /></button>
         <button className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
           {theme === 'dark' ? <Sun /> : <Moon />}
