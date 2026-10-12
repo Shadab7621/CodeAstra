@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1920" height="1080" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="40" y="58" font-size="42" font-weight="700" fill="#0f172a">Disaster reports that survive a network failure</text>
+  <text x="40" y="96" font-size="23" fill="#475569">CodeAstra 2.0 · Cloud Computing &amp; Distributed Systems · Geo-distributed replication with graceful degradation</text>
+
+  <!-- ============ BAND 1: normal ============ -->
+  <rect x="20" y="120" width="1880" height="280" rx="14" fill="#eff6ff" stroke="#bfdbfe"/>
+  <circle cx="56" cy="156" r="18" fill="#2563eb"/>
+  <text x="56" y="164" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+  <text x="86" y="165" font-size="27" font-weight="700" fill="#1e3a8a">Normal day: write locally first, copy in the background</text>
+
+  <g font-size="22" text-anchor="middle" fill="#0f172a">
+    <rect x="40"   y="195" width="300" height="110" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+    <text x="190"  y="243">Responder submits</text><text x="190" y="272">a disaster report</text>
+
+    <rect x="425"  y="195" width="300" height="110" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+    <text x="575"  y="243">Nearest node saves it</text><text x="575" y="272">as an event, instantly</text>
+
+    <rect x="810"  y="195" width="300" height="110" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+    <text x="960"  y="243">Background sync</text><text x="960" y="272">every 0.5 seconds</text>
+
+    <rect x="1195" y="195" width="300" height="110" rx="12" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+    <text x="1345" y="243">Other regions keep</text><text x="1345" y="272">their own copy</text>
+
+    <rect x="1580" y="195" width="300" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="1730" y="243" font-weight="700">Status: CONFIRMED</text><text x="1730" y="272">held by every region</text>
+  </g>
+  <g stroke="#475569" stroke-width="3" marker-end="url(#arrow)">
+    <line x1="342" y1="250" x2="421" y2="250"/>
+    <line x1="727" y1="250" x2="806" y2="250"/>
+    <line x1="1112" y1="250" x2="1191" y2="250"/>
+    <line x1="1497" y1="250" x2="1576" y2="250"/>
+  </g>
+  <g font-size="18" font-weight="600" text-anchor="middle">
+    <rect x="465" y="330" width="220" height="38" rx="19" fill="#fef3c7" stroke="#d97706"/>
+    <text x="575" y="355" fill="#92400e">LOCAL · at risk</text>
+    <rect x="1235" y="330" width="220" height="38" rx="19" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="1345" y="355" fill="#1e40af">REPLICATED</text>
+    <rect x="1620" y="330" width="220" height="38" rx="19" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="1730" y="355" fill="#166534">CONFIRMED</text>
+  </g>
+  <text x="40" y="355" font-size="19" fill="#475569">The user is never blocked waiting for the network.</text>
+
+  <!-- ============ BAND 2: disaster ============ -->
+  <rect x="20" y="415" width="1880" height="315" rx="14" fill="#fef2f2" stroke="#fecaca"/>
+  <circle cx="56" cy="451" r="18" fill="#dc2626"/>
+  <text x="56" y="459" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+  <text x="86" y="460" font-size="27" font-weight="700" fill="#7f1d1d">Disaster: the network is cut, and both sides keep working</text>
+
+  <!-- links -->
+  <line x1="310" y1="575" x2="810" y2="515" stroke="#dc2626" stroke-width="4" stroke-dasharray="12 9"/>
+  <line x1="310" y1="580" x2="810" y2="655" stroke="#dc2626" stroke-width="4" stroke-dasharray="12 9"/>
+  <line x1="860" y1="567" x2="860" y2="603" stroke="#16a34a" stroke-width="5"/>
+  <!-- cut marks -->
+  <g stroke="#dc2626" stroke-width="6" stroke-linecap="round">
+    <line x1="545" y1="531" x2="575" y2="561"/><line x1="575" y1="531" x2="545" y2="561"/>
+    <line x1="545" y1="603" x2="575" y2="633"/><line x1="575" y1="603" x2="545" y2="633"/>
+  </g>
+  <!-- nodes -->
+  <g text-anchor="middle" font-weight="700" fill="#fff" font-size="18">
+    <circle cx="260" cy="578" r="54" fill="#d97706"/><text x="260" y="585">Mumbai</text>
+    <circle cx="860" cy="513" r="54" fill="#2563eb"/><text x="860" y="520">Hyderabad</text>
+    <circle cx="860" cy="657" r="54" fill="#2563eb"/><text x="860" y="664">Singapore</text>
+  </g>
+  <text x="260" y="665" font-size="18" fill="#92400e" text-anchor="middle">cut off, still accepts writes</text>
+  <text x="878" y="591" font-size="17" fill="#166534">still syncing</text>
+
+  <g font-size="21" fill="#0f172a">
+    <rect x="1120" y="462" width="760" height="112" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="2"/>
+    <text x="1145" y="502" font-weight="700">Mumbai keeps accepting reports</text>
+    <text x="1145" y="534">Its writes are marked LOCAL, so the operator can see they are at risk.</text>
+
+    <rect x="1120" y="590" width="760" height="112" rx="12" fill="#fff" stroke="#fca5a5" stroke-width="2"/>
+    <text x="1145" y="630" font-weight="700">The same report gets edited on both sides</text>
+    <text x="1145" y="662">Mumbai: “road flooded”   Hyderabad: “water knee high”</text>
+  </g>
+
+  <!-- ============ BAND 3: recovery ============ -->
+  <rect x="20" y="745" width="1880" height="285" rx="14" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <circle cx="56" cy="781" r="18" fill="#16a34a"/>
+  <text x="56" y="789" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+  <text x="86" y="790" font-size="27" font-weight="700" fill="#14532d">Recovery: reconnect and merge, with nothing silently lost</text>
+
+  <g font-size="22" text-anchor="middle" fill="#0f172a">
+    <rect x="40"   y="815" width="300" height="100" rx="12" fill="#fff" stroke="#86efac" stroke-width="2"/>
+    <text x="190"  y="860">Network restored</text><text x="190" y="889">links reopen</text>
+
+    <rect x="425"  y="815" width="300" height="100" rx="12" fill="#fff" stroke="#86efac" stroke-width="2"/>
+    <text x="575"  y="860">Nodes exchange</text><text x="575" y="889">the missing events</text>
+
+    <rect x="810"  y="815" width="300" height="100" rx="12" fill="#fff" stroke="#86efac" stroke-width="2"/>
+    <text x="960"  y="860">Merge by field rules</text><text x="960" y="889">no clock needed</text>
+
+    <rect x="1195" y="815" width="300" height="100" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+    <text x="1345" y="860" font-weight="700">Conflict ledger</text><text x="1345" y="889">keeps both versions</text>
+
+    <rect x="1580" y="815" width="300" height="100" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="1730" y="860" font-weight="700">All regions identical</text><text x="1730" y="889">proved by a state hash</text>
+  </g>
+  <g stroke="#475569" stroke-width="3" marker-end="url(#arrow)">
+    <line x1="342" y1="865" x2="421" y2="865"/>
+    <line x1="727" y1="865" x2="806" y2="865"/>
+    <line x1="1112" y1="865" x2="1191" y2="865"/>
+    <line x1="1497" y1="865" x2="1576" y2="865"/>
+  </g>
+
+  <g font-size="19" text-anchor="middle" fill="#0f172a">
+    <rect x="40"   y="940" width="440" height="62" rx="10" fill="#fff" stroke="#86efac"/>
+    <text x="260"  y="978"><tspan font-weight="700">Severity</tspan>: highest wins</text>
+    <rect x="506"  y="940" width="440" height="62" rx="10" fill="#fff" stroke="#86efac"/>
+    <text x="726"  y="978"><tspan font-weight="700">Status</tspan>: most advanced wins</text>
+    <rect x="972"  y="940" width="440" height="62" rx="10" fill="#fff" stroke="#86efac"/>
+    <text x="1192" y="978"><tspan font-weight="700">Location</tspan>: latest, flag if &gt;500 m</text>
+    <rect x="1438" y="940" width="440" height="62" rx="10" fill="#fff" stroke="#86efac"/>
+    <text x="1658" y="978"><tspan font-weight="700">Description</tspan>: keep both, operator picks</text>
+  </g>
+
+  <!-- footer -->
+  <text x="960" y="1062" font-size="20" fill="#334155" text-anchor="middle">Verified: 54 automated tests · random partition, crash and clock-skew runs · 0 acknowledged writes lost · converges in about 0.3 s on a local 3-node cluster</text>
+</svg>
