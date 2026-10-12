@@ -5,7 +5,7 @@ import { offsetLabel, shortHash } from '../lib';
 import DecryptedText from '../reactbits/DecryptedText';
 import Panel from './Panel';
 
-export const PAIRS = [['mum', 'hyd'], ['hyd', 'sin'], ['mum', 'sin']];
+export const PAIRS = [['mum', 'hyd'], ['mum', 'sin'], ['hyd', 'sin']];
 
 export function linkState(nodes, a, b) {
   const A = nodes[a];

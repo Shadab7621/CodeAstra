@@ -18,6 +18,9 @@ export const Close = () => (
 export const Plus = () => (
   <svg {...base}><path d="M12 5v14M5 12h14" /></svg>
 );
+export const Cart = () => (
+  <svg {...base}><path d="M3 4h2l2.2 10.1a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 1.9-1.4L22 8H6" /><circle cx="10" cy="20" r="1.2" /><circle cx="18" cy="20" r="1.2" /></svg>
+);
 
 /** The mark: three linked nodes. */
 export const Mark = ({ className }) => (

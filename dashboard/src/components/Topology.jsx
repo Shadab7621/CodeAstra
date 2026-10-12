@@ -2,7 +2,7 @@ import { REGION } from '../config';
 import { PROVIDER_COLOR } from '../infra';
 
 const POS = { mum: { x: 170, y: 232 }, hyd: { x: 400, y: 104 }, sin: { x: 730, y: 168 } };
-const PAIRS = [['mum', 'hyd'], ['hyd', 'sin'], ['mum', 'sin']];
+const PAIRS = [['mum', 'hyd'], ['mum', 'sin'], ['hyd', 'sin']];
 
 // A gentle curve between two nodes, bowed away from the centre of the diagram.
 function curve(a, b) {

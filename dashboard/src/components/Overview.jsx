@@ -41,7 +41,7 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
         onToggleLink={actions.toggleLink} onPause={actions.pause} onResume={actions.resume} onSkew={actions.skew}
       />
       <div className="grid-2">
-        <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} kind={kind} />
+        <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} />
         <div className="stack">
           <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={kind} />
           <Integrity nodes={nodes} urls={urls} kind={kind} />
