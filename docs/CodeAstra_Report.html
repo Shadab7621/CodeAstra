@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <title>CodeAstra 2.0 - Project Report</title>
 <style>
-  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  @page { size: A4; margin: 13mm 14mm 13mm 14mm; }
   @page wide { size: A4 landscape; margin: 10mm; }
   :root { --ink:#0f172a; --muted:#475569; --line:#cbd5e1; --blue:#1d4ed8; --green:#15803d;
           --amber:#b45309; --red:#b91c1c; --soft:#f1f5f9; }
   * { box-sizing: border-box; }
-  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10.5pt;
-         line-height: 1.5; margin: 0; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10pt;
+         line-height: 1.42; margin: 0; }
   h1 { font-size: 20pt; margin: 0 0 6pt; color: var(--ink); }
   h2 { font-size: 15pt; margin: 20pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid var(--blue);
        color: var(--ink); break-after: avoid; }
@@ -24,7 +24,7 @@
   .avoid { break-inside: avoid; }
 
   /* cover */
-  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover { height: 262mm; display: flex; flex-direction: column; justify-content: center; }
   .cover .tag { color: var(--blue); font-weight: 700; letter-spacing: 1.5pt; font-size: 11pt; }
   .cover h1 { font-size: 30pt; line-height: 1.15; margin: 10pt 0 12pt; }
   .cover .sub { font-size: 14pt; color: var(--muted); max-width: 150mm; }
@@ -36,7 +36,7 @@
   .stat span { font-size: 9pt; color: var(--muted); }
 
   /* tables */
-  table { width: 100%; border-collapse: collapse; margin: 5pt 0 8pt; font-size: 9pt; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 7pt; font-size: 8.8pt; }
   th { background: #e2e8f0; text-align: left; padding: 3.5pt 6pt; border: 1px solid var(--line); }
   td { padding: 3.5pt 6pt; border: 1px solid var(--line); vertical-align: top; line-height: 1.4; }
   tr { break-inside: avoid; }
@@ -78,8 +78,8 @@
     merges safely when it returns, and tells operators exactly what is at risk.</div>
   <div class="stats">
     <div class="stat"><b>3</b><span>replicas live on AWS (Mumbai, Hyderabad, Singapore)</span></div>
-    <div class="stat"><b>58</b><span>automated tests passing</span></div>
-    <div class="stat"><b>0</b><span>acknowledged writes lost in fault tests</span></div>
+    <div class="stat"><b>68</b><span>automated tests passing</span></div>
+    <div class="stat"><b>0%</b><span>edits silently lost, vs 42% for last-writer-wins (100 trials each)</span></div>
     <div class="stat"><b>&lt;1 s</b><span>to converge after healing, across 3 AWS regions</span></div>
   </div>
   <div class="meta">
@@ -99,7 +99,9 @@ network returns, or <b>accept writes and silently overwrite</b> whichever edit h
   <li><b>Always accept</b> a report locally, instantly, even when cut off.</li>
   <li><b>Never silently lose</b> a write. Conflicts are kept in a visible ledger and resolved by clear rules or a human operator.</li>
   <li><b>Tell the truth</b> about safety: every report is marked <i>local</i>, <i>replicated</i> or <i>confirmed</i>.</li>
-  <li><b>Prove it</b> with an automated fault-injection tester and a side-by-side comparison against a last-writer-wins baseline.</li>
+  <li><b>Prove history is intact.</b> Every event is hash-chained, so editing, deleting or forging a stored event is detectable, and a replica rejects forged events from a bad peer.</li>
+  <li><b>Prove it with numbers.</b> In 100 fault-injection trials per system, last-writer-wins silently lost 42.2% of acknowledged edits; our engine lost 0%.</li>
+  <li><b>Stay provider-independent.</b> No managed database service is used, so the same nodes can run on AWS and Google Cloud and survive a whole-provider failure.</li>
 </ul>
 <div class="callout green">
   <b>One-sentence pitch.</b> Cloud providers move data between regions; we make that replication
@@ -110,7 +112,8 @@ network returns, or <b>accept writes and silently overwrite</b> whichever edit h
 <p>The replication engine is built and verified: three nodes replicate, survive partitions, crashes and
 wrong clocks, and converge to identical state. It runs in Docker and is deployed as three servers on AWS
 (Mumbai, Hyderabad, Singapore), where the full partition, heal and crash-recovery scenario passes 12 of 12
-checks. The comparison baseline with its benchmark numbers and the operator dashboard are the remaining work.</p>
+checks. The comparison benchmark against a last-writer-wins baseline is complete (section 9). The operator
+dashboard and a run of the mixed AWS and Google Cloud deployment are the remaining work.</p>
 </section>
 
 <!-- ===================== 2. PROBLEM ===================== -->
@@ -186,6 +189,7 @@ accepting reports while disconnected from its primary service and later reconcil
 <p>If a later edit was written by someone who had already seen both versions, it simply supersedes them.
 Every concurrent disagreement stays in the ledger as history, whether a rule or a person resolved it.</p>
 
+<div class="avoid">
 <h3>3.4 Durability: telling the truth about risk</h3>
 <table>
   <tr><th style="width:18%">Status</th><th>Meaning</th></tr>
@@ -193,6 +197,7 @@ Every concurrent disagreement stays in the ledger as history, whether a rule or 
   <tr><td style="color:var(--blue);font-weight:700">replicated</td><td>At least one other node is known to hold every event of the report.</td></tr>
   <tr><td class="ok">confirmed</td><td>Every other node is known to hold it.</td></tr>
 </table>
+</div>
 
 <h3>3.5 Verification built into the system</h3>
 <p>Each node exposes a hash of its merged state and the list of event ids it holds. Equal hashes mean two
@@ -263,6 +268,18 @@ research; <span class="warn">general knowledge</span> means widely known but not
       <td>Independent fault-injection testing of databases</td>
       <td>Found split-brain, lost acknowledged writes and lost updates in production systems, so "it replicates" is not proof</td>
       <td class="ok">verified</td></tr>
+  <tr><td><b>Azure Cosmos DB, multi-region writes</b></td>
+      <td>Always-writable regions with a configurable conflict policy</td>
+      <td>Default is last-writer-wins on a timestamp; conflicts resolved that way do not appear in the conflict feed, and the policy cannot be changed after the container is created</td>
+      <td class="ok">verified</td></tr>
+  <tr><td><b>AWS QLDB (ledger database)</b></td>
+      <td>A managed, cryptographically verifiable ledger</td>
+      <td>Retired on 31 July 2025. The suggested replacement, Aurora PostgreSQL with audit logging, is reported to lack the cryptographic verifiability QLDB gave</td>
+      <td class="ok">verified (secondary sources)</td></tr>
+  <tr><td><b>Cross-cloud replication</b></td>
+      <td>Distributed SQL such as CockroachDB spans clouds; common practice is active-passive</td>
+      <td>No managed service offers active-active across AWS and Google Cloud that stays writable on the minority side of a partition; consensus systems need a majority</td>
+      <td class="warn">search found no counter-example</td></tr>
 </table>
 <div class="callout">
   <b>The gap we target:</b> AWS and others move the data. They do not decide what is true when two
@@ -285,6 +302,8 @@ verification that general-purpose tools do not provide.</p>
   <tr><td><b>Causality, not clocks</b></td><td>Correct behaviour even when a node's clock is an hour wrong. We test this explicitly.</td></tr>
   <tr><td><b>Built-in proof</b></td><td>A chaos tester runs random partitions, crashes and clock skew, then asserts convergence and zero lost writes, and compares against a last-writer-wins baseline.</td></tr>
   <tr><td><b>Safe reset across nodes</b></td><td>Epoch numbers prevent old data reappearing after a cluster reset, a real operational trap.</td></tr>
+  <tr><td><b>Tamper-evident history</b></td><td>Each event is hash-chained to the previous one from the same node. Editing, deleting or forging a stored event is detectable by recomputing the chain, and a replica refuses forged events from a peer, then recovers from an honest one. AWS retired its ledger database, QLDB, in July 2025, so this fills a gap rather than repeating a product.</td></tr>
+  <tr><td><b>Independent of any one provider</b></td><td>Nothing depends on a managed database, so the same image runs on AWS and Google Cloud and a whole-provider outage cannot take all replicas down. Managed services cannot replicate across clouds, and consensus databases cannot write on the minority side of a partition.</td></tr>
 </table>
 </section>
 
@@ -322,14 +341,16 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Docker packaging</td><td class="ok">Done</td><td>Image and compose file; data survives a hard kill and a full restart</td></tr>
   <tr><td>Admin token on sensitive endpoints</td><td class="ok">Done</td><td>Tests for open, protected and wrong-token cases; verified live on AWS</td></tr>
   <tr><td>AWS three-region deployment</td><td class="ok">Done</td><td>Mumbai, Hyderabad and Singapore; 12 of 12 checks across the real regions</td></tr>
-  <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="warn">In progress</td><td>Assigned to a teammate; results file format agreed</td></tr>
+  <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="ok">Done</td><td>100 trials per system, 5 scenarios, results file and charts generated</td></tr>
+  <tr><td>Tamper-evident hash-chained log and audit endpoints</td><td class="ok">Done</td><td>10 tests; live tamper demo detects an edit made behind the app</td></tr>
+  <tr><td>Google Cloud deployment script</td><td class="warn">Prepared</td><td>Written and syntax-checked; not yet run against a real project</td></tr>
   <tr><td>Operator dashboard</td><td class="warn">In progress</td><td>Assigned to a teammate; built against the API contract</td></tr>
 </table>
 
 <h3>Measured results</h3>
 <table>
   <tr><th style="width:42%">Check</th><th style="width:29%">Local cluster</th><th>Three AWS regions</th></tr>
-  <tr><td>Automated tests</td><td colspan="2">58 passed</td></tr>
+  <tr><td>Automated tests</td><td colspan="2">68 passed</td></tr>
   <tr><td>Random fault runs (writes, partitions, crashes, clock skew)</td><td colspan="2">25 seeds: always converged, no acknowledged write lost, identical ledgers</td></tr>
   <tr><td>End-to-end smoke test (replicate, partition, heal, crash)</td><td>12 of 12 passed</td><td>12 of 12 passed</td></tr>
   <tr><td>Report appears in another region</td><td>0.3 to 0.5 s</td><td>0.17 s</td></tr>
@@ -337,6 +358,26 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Convergence after a partition heals</td><td>0.2 to 0.35 s</td><td>0.56 s</td></tr>
   <tr><td>Crashed node catches up after resuming</td><td>0.1 to 0.3 s</td><td>0.40 s</td></tr>
 </table>
+
+<div class="avoid">
+<h3>Benchmark against a last-writer-wins baseline</h3>
+<p class="small muted">100 trials per system (20 per scenario, seed 11), local clusters, identical randomised
+operations applied to both. Edits are made during partitions, pairwise cuts, flapping links, a crashed node and a
+fast clock. An edit is "silently lost" when its value is absent from the final report and from every conflict-ledger
+entry, and no warning was returned when it was accepted.</p>
+<table>
+  <tr><th style="width:42%">Measure</th><th style="width:29%">Our engine</th><th>Last-writer-wins baseline</th></tr>
+  <tr><td>Replicas converged</td><td>100%</td><td>100%</td></tr>
+  <tr><td>Acknowledged edits silently lost</td><td class="ok">0.0% (0 of 199)</td><td class="bad">42.2%</td></tr>
+  <tr><td>Acknowledged events missing from final state</td><td class="ok">0.0%</td><td class="bad">24.5%</td></tr>
+  <tr><td>Causally later edit overridden by a fast clock</td><td class="ok">0 of 20</td><td class="bad">20 of 20</td></tr>
+  <tr><td>Trials with no loss</td><td class="ok">100 of 100</td><td class="bad">9 of 100</td></tr>
+  <tr><td>Convergence after healing, p50 / p95</td><td>18 / 138 ms</td><td>8 / 119 ms</td></tr>
+</table>
+</div>
+<p class="small muted">The baseline converges slightly faster, which is expected: it keeps no history to exchange. The
+scenarios are deliberately conflict-heavy stress tests, so these percentages show behaviour under failure, not the
+loss rate of a normal workload.</p>
 <p class="small muted">Timings are measured from a laptop that polls the nodes over HTTP, so they include the
 laptop's own network round trip and a 0.1 s polling step. Read them as upper bounds on the replication delay, from
 a single run each, not as a statistical benchmark.</p>
@@ -363,9 +404,11 @@ a single run each, not as a statistical benchmark.</p>
   <tr><td>I5</td><td>Severity never decreases without an operator</td><td>Compare final severity with all writes</td></tr>
   <tr><td>I6</td><td>Convergence time</td><td>Measured from heal to equal hashes (p50 and p95)</td></tr>
 </table>
-<p>The headline figure we expect to present is the <b>silent-overwrite rate</b>: the percentage of
-concurrent edits that vanish in the baseline versus in our system. This number has not been measured yet, so
-it is not claimed in this report.</p>
+<p>The headline figure is the <b>silent-overwrite rate</b>: in the benchmark of section 8, 42.2% of acknowledged
+edits vanished under last-writer-wins and none did in our engine. The baseline is our own implementation of
+item-level last-writer-wins, modelled on how DynamoDB Global Tables and Cosmos DB behave by default, not those
+products themselves. It replicates and converges correctly, and shares the engine's request validation, so the
+comparison is like for like.</p>
 
 <h3>Demo script (3 minutes)</h3>
 <ol>
@@ -386,7 +429,7 @@ it is not claimed in this report.</p>
   <tr><th style="width:5%">#</th><th style="width:38%">Task</th><th style="width:12%">Owner</th><th>Done when</th></tr>
   <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td class="ok">Done: smoke test passes against containers</td></tr>
   <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>All</td><td>Dashboard drives the real cluster</td></tr>
-  <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Testing teammate</td><td>Results file and two charts produced</td></tr>
+  <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Engine / infra</td><td class="ok">Done: results file and charts produced</td></tr>
   <tr><td>4</td><td>Deploy three nodes to AWS regions</td><td>Engine / infra</td><td class="ok">Done: partition and heal verified across regions</td></tr>
   <tr><td>5</td><td>Rehearse the demo twice, with a laptop-only fallback</td><td>All</td><td>Runs without venue Wi-Fi</td></tr>
   <tr><td>6</td><td>Feature freeze, final report and slides</td><td>All</td><td>Submission ready</td></tr>
@@ -407,6 +450,9 @@ it is not claimed in this report.</p>
   <tr><td>Cost of running three cloud machines</td><td>Small instances, billing alarm already set, tagged resources and a one-command teardown.</td></tr>
   <tr><td>Security is prototype-grade</td><td>Admin, sync and operator endpoints need a shared secret, but it travels over plain HTTP and anyone can create or read reports. HTTPS, per-user identity and signed messages are the production answer.</td></tr>
   <tr><td>Not load tested</td><td>SQLite per node and three nodes only. The prototype proves behaviour under faults, not throughput.</td></tr>
+  <tr><td>The baseline is our model, not the products</td><td>It follows how DynamoDB Global Tables and Cosmos DB behave by default, but the real services were not benchmarked. The report says so wherever the numbers appear.</td></tr>
+  <tr><td>Tamper evidence is not tamper proofing</td><td>An administrator can still change a node's database. The change is detectable, but only by comparing against other replicas or an earlier head hash; the chain is not signed.</td></tr>
+  <tr><td>Google Cloud deployment not yet exercised</td><td>The script is written and checked for syntax; the mixed AWS and Google Cloud run is pending a Google Cloud project.</td></tr>
   <tr><td>Urgent-first catch-up sync</td><td>Not built: it conflicts with the in-order rule that keeps conflict detection correct. We do not claim it.</td></tr>
 </table>
 </section>
@@ -421,6 +467,8 @@ it is not claimed in this report.</p>
   <tr><td>Why not trust timestamps?</td><td>Devices in disaster zones often have wrong clocks, so we use causal information from version vectors and logical clocks.</td></tr>
   <tr><td>Is this just a CRDT library?</td><td>No. We use similar convergence ideas but add disaster-specific rules, an operator ledger, durability status and a built-in verification harness.</td></tr>
   <tr><td>How do you know it is correct?</td><td>Per-rule tests, random multi-node fault runs with invariants, and a comparison against a baseline.</td></tr>
+  <tr><td>Is your baseline fair?</td><td>It replicates and converges correctly and shares our request validation. It is our own implementation of item-level last-writer-wins, so we describe it as a model of how DynamoDB and Cosmos DB behave by default, not as those products.</td></tr>
+  <tr><td>What is new compared with a CRDT or AWS?</td><td>Disaster-specific merge rules with an operator ledger, per-report durability, a tamper-evident hash-chained history that replaces what AWS retired with QLDB, and a design with no managed service, so it runs across cloud providers.</td></tr>
   <tr><td>Does it scale?</td><td>Not tested beyond three nodes and small data. The prototype proves the behaviour, not throughput.</td></tr>
 </table>
 </section>
@@ -439,6 +487,10 @@ it is not claimed in this report.</p>
   <li>Jepsen: NATS 2.12.1 &mdash; jepsen.io/blog/2025-12-08-nats-2.12.1</li>
   <li>Jepsen: MariaDB Galera Cluster 12.1.2 &mdash; jepsen.io/blog/2026-03-16-mariadb-galera-cluster-12.1.2</li>
   <li>DZone: Conflict resolution using last-write-wins vs CRDTs</li>
+  <li>InfoQ: AWS kills QLDB &mdash; infoq.com/news/2024/07/aws-kill-qldb (retired 31 July 2025)</li>
+  <li>Microsoft Learn: Cosmos DB conflict types and resolution policies &mdash; learn.microsoft.com/en-us/azure/cosmos-db/conflict-resolution-policies</li>
+  <li>Gigazine and Educative: analyses of the October 2025 AWS us-east-1 DynamoDB DNS outage (secondary sources)</li>
+  <li>Pulse: multicloud database management &mdash; pulse.support/kb/multicloud-database-management</li>
 </ul>
 <div class="footer-note">
   Technical claims about other products marked "general knowledge" were not re-verified during our research.

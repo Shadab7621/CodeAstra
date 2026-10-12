@@ -52,6 +52,17 @@ The token (`infra\.admin_token`) is created on first deploy and is git-ignored. 
 `/admin/*`, `/sync` and conflict resolution; creating and reading reports stays open.
 Three small instances cost about three cents an hour, so run `down` when you are finished.
 
+## Benchmark: engine vs last-writer-wins
+
+```powershell
+python infra\run_cluster.py --fresh --baseline --fast   # engine on 8001-8003, baseline on 9001-9003
+python -m chaos.run --trials 20 --seed 11               # in a second terminal (about 3 minutes)
+```
+
+Writes `results\results.json` and two charts. The baseline (`baseline_lww\`) is our own
+implementation of item-level last-writer-wins, modelled on DynamoDB Global Tables and Cosmos DB
+defaults. Scenarios are conflict-heavy stress tests, not a normal workload.
+
 ## Tamper-evident history
 
 Every event is hash-chained to the previous one from the same node.
