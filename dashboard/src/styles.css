@@ -447,6 +447,8 @@ tr.flash td { animation: flash 1.2s var(--ease); }
 .cart-empty p { margin-bottom: 8px; color: var(--muted); }
 .cart-content { padding-bottom: 2px; }
 .cart-table { min-width: 650px; }
+.cart-table tbody tr { transition: none; }
+.cart-table tbody tr:hover { background: transparent; }
 .cart-table th { padding-top: 13px; padding-bottom: 13px; font-size: 12px; letter-spacing: 0; text-transform: none; }
 .cart-table td { padding-top: 16px; padding-bottom: 16px; }
 .cart-item-cell { width: 43%; }
