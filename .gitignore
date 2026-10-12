@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.pem
+.aws/
+credentials
+keys.txt
+*accessKeys*.csv
+*.exe
+/image.png
+data/
+*.db
+*.db-journal
+node_modules/
+.pytest_cache/
