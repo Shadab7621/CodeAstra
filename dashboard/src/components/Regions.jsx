@@ -4,6 +4,7 @@ import { PROVIDER_COLOR } from '../infra';
 import { offsetLabel, shortHash } from '../lib';
 import DecryptedText from '../reactbits/DecryptedText';
 import Panel from './Panel';
+import Topology from './Topology';
 
 export const PAIRS = [['mum', 'hyd'], ['mum', 'sin'], ['hyd', 'sin']];
 
@@ -85,10 +86,32 @@ function RegionCard({ id, node, meta, canAct, onPause, onResume, onSkew }) {
   );
 }
 
-export default function Regions({ nodes, meta, canAct, onToggleLink, onPause, onResume, onSkew }) {
+export default function Regions({ nodes, meta, canAct, onToggleLink, onPause, onResume, onSkew, onHealAll }) {
   const summary = syncSummary(nodes);
+  const links = allLinks(nodes);
+  const anyCut = Object.values(links).some((s) => s === 'cut');
+
   return (
-    <Panel title="Regions" hint="Each region is a full copy of the service. Cut a link to split them.">
+    <Panel
+      title="Regions"
+      hint="Each region is an autonomous node. Fault injection and node controls below."
+      actions={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {anyCut && onHealAll && (
+            <button
+              className="btn btn-sm btn-primary"
+              disabled={!canAct}
+              onClick={onHealAll}
+            >
+              Heal All Links
+            </button>
+          )}
+          <span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>
+            {summary.text}
+          </span>
+        </div>
+      }
+    >
       <div className="stack" style={{ gap: 16 }}>
         <motion.div key={summary.text} className={`banner ${summary.tone}`} initial={{ opacity: 0.3 }} animate={{ opacity: 1 }}>
           <span className={`dot ${summary.tone}`} />
@@ -98,24 +121,17 @@ export default function Regions({ nodes, meta, canAct, onToggleLink, onPause, on
 
         <div className="regions">
           {NODES.map((id) => (
-            <RegionCard key={id} id={id} node={nodes[id]} meta={meta[id]} canAct={canAct} onPause={onPause} onResume={onResume} onSkew={onSkew} />
+            <RegionCard
+              key={id}
+              id={id}
+              node={nodes[id]}
+              meta={meta[id]}
+              canAct={canAct}
+              onPause={onPause}
+              onResume={onResume}
+              onSkew={onSkew}
+            />
           ))}
-        </div>
-
-        <div className="links-strip">
-          {PAIRS.map(([a, b]) => {
-            const st = linkState(nodes, a, b);
-            return (
-              <button
-                key={`${a}${b}`} className={`link-chip ${st === 'cut' ? 'cut' : ''}`}
-                disabled={!canAct || st === 'unknown'} onClick={() => onToggleLink(a, b, st)}
-              >
-                <span className={`dot ${st === 'cut' ? 'bad' : st === 'ok' ? 'ok' : ''}`} />
-                {REGION[a].name} to {REGION[b].name}
-                <span className="muted">{st === 'cut' ? 'cut, click to restore' : st === 'ok' ? 'connected, click to cut' : 'unavailable'}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
     </Panel>

@@ -79,10 +79,10 @@ function AddToCart({ base, region, cartLines, onClose }) {
         total: current.total + product.price * quantity,
       }));
       setAddedSku(product.sku);
-      setTimeout(() => setAddedSku((prev) => (prev === product.sku ? '' : prev)), 1800);
-      toast(`Added ${quantity} × ${product.name} to ${REGION[region].name} cart.`);
+      setTimeout(() => setAddedSku((prev) => (prev === product.sku ? '' : prev)), 2200);
+      toast(`${quantity} × ${product.name} added to ${REGION[region].name} cart.`, 'ok', 'Item Added to Cart');
     } catch (err) {
-      toast(`Could not add product: ${err.message}`, 'bad');
+      toast(`Could not add product: ${err.message}`, 'bad', 'Error Adding Item');
     } finally {
       setBusySku('');
     }
@@ -197,6 +197,19 @@ function AddToCart({ base, region, cartLines, onClose }) {
               <strong className="cart-summary-price">{money(totalPrice)}</strong>
             </div>
           </div>
+          <AnimatePresence>
+            {addedSku && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="modal-inline-alert"
+              >
+                <span className="modal-alert-dot" />
+                <span>Added to {REGION[region].name} cart!</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <button type="button" className="cart-done-btn" onClick={onClose}>
             <span>View Cart</span>
             <Arrow />

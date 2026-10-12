@@ -28,6 +28,19 @@ export function useClusterActions(urls, token) {
     pause: (n) => run(`${REGION[n].name} is paused. It now rejects requests, like a crashed server.`, () => api.pause(urls[n], token)),
     resume: (n) => run(`${REGION[n].name} resumed`, () => api.resume(urls[n], token)),
     skew: (n, ms) => run(ms ? `${REGION[n].name}'s clock is now an hour fast` : `${REGION[n].name}'s clock is back to normal`, () => api.clock(urls[n], ms, token)),
+    syncNow: (n) => run(`Sync triggered on ${REGION[n].name}`, () => api.syncNow(urls[n], token)),
+    syncAll: () => run('Sync triggered across all active nodes', async () => {
+      await Promise.all(Object.values(urls).map((u) => api.syncNow(u, token).catch(() => {})));
+    }),
+    healAll: () => run('Restored all network links between regions', async () => {
+      const calls = [];
+      const pairs = [['mum', 'hyd'], ['mum', 'sin'], ['hyd', 'sin']];
+      for (const [a, b] of pairs) {
+        if (urls[a]) calls.push(api.unblock(urls[a], b, token).catch(() => {}));
+        if (urls[b]) calls.push(api.unblock(urls[b], a, token).catch(() => {}));
+      }
+      await Promise.all(calls);
+    }),
   };
 }
 
