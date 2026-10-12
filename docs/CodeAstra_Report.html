@@ -36,9 +36,9 @@
   .stat span { font-size: 9pt; color: var(--muted); }
 
   /* tables */
-  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.5pt; }
-  th { background: #e2e8f0; text-align: left; padding: 5pt 6pt; border: 1px solid var(--line); }
-  td { padding: 5pt 6pt; border: 1px solid var(--line); vertical-align: top; }
+  table { width: 100%; border-collapse: collapse; margin: 5pt 0 8pt; font-size: 9pt; }
+  th { background: #e2e8f0; text-align: left; padding: 3.5pt 6pt; border: 1px solid var(--line); }
+  td { padding: 3.5pt 6pt; border: 1px solid var(--line); vertical-align: top; line-height: 1.4; }
   tr { break-inside: avoid; }
   .ok { color: var(--green); font-weight: 700; }
   .warn { color: var(--amber); font-weight: 700; }
@@ -77,14 +77,14 @@
   <div class="sub">A multi-region report service that keeps accepting data when the network breaks,
     merges safely when it returns, and tells operators exactly what is at risk.</div>
   <div class="stats">
-    <div class="stat"><b>3</b><span>regional replicas (Mumbai, Hyderabad, Singapore)</span></div>
-    <div class="stat"><b>54</b><span>automated tests passing</span></div>
+    <div class="stat"><b>3</b><span>replicas live on AWS (Mumbai, Hyderabad, Singapore)</span></div>
+    <div class="stat"><b>58</b><span>automated tests passing</span></div>
     <div class="stat"><b>0</b><span>acknowledged writes lost in fault tests</span></div>
-    <div class="stat"><b>~0.3 s</b><span>to converge after healing (local cluster)</span></div>
+    <div class="stat"><b>&lt;1 s</b><span>to converge after healing, across 3 AWS regions</span></div>
   </div>
   <div class="meta">
     Project report for judges and mentors &middot; 12 October 2026<br>
-    Status: engine complete and tested locally; baseline, dashboard and AWS deployment in progress
+    Status: engine complete and verified locally and on a three-region AWS deployment; baseline benchmark and dashboard in progress
   </div>
 </section>
 
@@ -108,8 +108,9 @@ network returns, or <b>accept writes and silently overwrite</b> whichever edit h
 </div>
 <h3>Where we are today</h3>
 <p>The replication engine is built and verified: three nodes replicate, survive partitions, crashes and
-wrong clocks, and converge to identical state. The comparison baseline, operator dashboard and the
-three-region AWS deployment are the remaining work.</p>
+wrong clocks, and converge to identical state. It runs in Docker and is deployed as three servers on AWS
+(Mumbai, Hyderabad, Singapore), where the full partition, heal and crash-recovery scenario passes 12 of 12
+checks. The comparison baseline with its benchmark numbers and the operator dashboard are the remaining work.</p>
 </section>
 
 <!-- ===================== 2. PROBLEM ===================== -->
@@ -271,7 +272,7 @@ research; <span class="warn">general knowledge</span> means widely known but not
 </section>
 
 <!-- ===================== 7. INNOVATION ===================== -->
-<section>
+<section class="page-break">
 <h2>6. What is different and innovative</h2>
 <p>We want to be clear about what is new. Event logs, hybrid clocks and version vectors are established
 techniques. Our contribution is combining them into a disaster-operations service with behaviour and
@@ -298,7 +299,8 @@ verification that general-purpose tools do not provide.</p>
   <tr><td>Node-to-node calls</td><td>httpx</td><td>Simple HTTP, easy to block and inspect in tests</td></tr>
   <tr><td>Tests</td><td>pytest</td><td>Unit, multi-node and random-fault tests</td></tr>
   <tr><td>Packaging</td><td>Docker and Compose</td><td>One command for teammates; same image locally and in the cloud</td></tr>
-  <tr><td>Cloud</td><td>AWS EC2 in three regions</td><td>Real geographic separation for the final demo</td></tr>
+  <tr><td>Cloud</td><td>AWS EC2 in three regions (deployed)</td><td>Real geographic separation. One small instance per region, created and removed by one script, all resources tagged for clean teardown</td></tr>
+  <tr><td>Access control</td><td>Shared-secret header on admin, sync and operator endpoints</td><td>Lets the nodes be reachable from any network while fault injection and operator decisions stay protected; reporting and reading stay open</td></tr>
   <tr><td>Dashboard</td><td>Web single-page app</td><td>Shows regions, reports, conflicts and fault controls</td></tr>
 </table>
 <p class="small muted">We deliberately did not implement Raft or Paxos: this problem calls for an
@@ -317,23 +319,27 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Durability states, peer status, state hash</td><td class="ok">Done</td><td>Multi-node tests</td></tr>
   <tr><td>Fault injection (block, pause, clock, reset)</td><td class="ok">Done</td><td>Admin API and tests</td></tr>
   <tr><td>Local three-node cluster and smoke test</td><td class="ok">Done</td><td>12 of 12 checks over real HTTP</td></tr>
-  <tr><td>Docker packaging</td><td class="warn">Next</td><td>Docker Desktop now working</td></tr>
+  <tr><td>Docker packaging</td><td class="ok">Done</td><td>Image and compose file; data survives a hard kill and a full restart</td></tr>
+  <tr><td>Admin token on sensitive endpoints</td><td class="ok">Done</td><td>Tests for open, protected and wrong-token cases; verified live on AWS</td></tr>
+  <tr><td>AWS three-region deployment</td><td class="ok">Done</td><td>Mumbai, Hyderabad and Singapore; 12 of 12 checks across the real regions</td></tr>
   <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="warn">In progress</td><td>Assigned to a teammate; results file format agreed</td></tr>
   <tr><td>Operator dashboard</td><td class="warn">In progress</td><td>Assigned to a teammate; built against the API contract</td></tr>
-  <tr><td>AWS three-region deployment</td><td class="warn">Planned</td><td>Needs EC2 permission and the Hyderabad region enabled</td></tr>
 </table>
 
-<h3>Measured results (local three-node cluster)</h3>
+<h3>Measured results</h3>
 <table>
-  <tr><th>Check</th><th>Result</th></tr>
-  <tr><td>Automated tests</td><td>54 passed</td></tr>
-  <tr><td>Random fault runs (writes, partitions, crashes, clock skew)</td><td>25 seeds: always converged, no acknowledged write lost, identical ledgers</td></tr>
-  <tr><td>Report replicated to another region</td><td>about 0.3 to 0.4 s</td></tr>
-  <tr><td>Report reaches "confirmed" everywhere</td><td>about 0.5 s</td></tr>
-  <tr><td>Convergence after a partition heals</td><td>about 0.2 to 0.3 s</td></tr>
+  <tr><th style="width:42%">Check</th><th style="width:29%">Local cluster</th><th>Three AWS regions</th></tr>
+  <tr><td>Automated tests</td><td colspan="2">58 passed</td></tr>
+  <tr><td>Random fault runs (writes, partitions, crashes, clock skew)</td><td colspan="2">25 seeds: always converged, no acknowledged write lost, identical ledgers</td></tr>
+  <tr><td>End-to-end smoke test (replicate, partition, heal, crash)</td><td>12 of 12 passed</td><td>12 of 12 passed</td></tr>
+  <tr><td>Report appears in another region</td><td>0.3 to 0.5 s</td><td>0.17 s</td></tr>
+  <tr><td>Report reaches "confirmed" everywhere</td><td>about 0.5 s</td><td>0.29 s</td></tr>
+  <tr><td>Convergence after a partition heals</td><td>0.2 to 0.35 s</td><td>0.56 s</td></tr>
+  <tr><td>Crashed node catches up after resuming</td><td>0.1 to 0.3 s</td><td>0.40 s</td></tr>
 </table>
-<p class="small muted">These figures come from one laptop, not from regions on separate networks. We will report
-cloud numbers separately after the AWS deployment and will not present local timings as cloud performance.</p>
+<p class="small muted">Timings are measured from a laptop that polls the nodes over HTTP, so they include the
+laptop's own network round trip and a 0.1 s polling step. Read them as upper bounds on the replication delay, from
+a single run each, not as a statistical benchmark.</p>
 </section>
 
 <!-- ===================== 10. EVALUATION ===================== -->
@@ -378,10 +384,10 @@ it is not claimed in this report.</p>
 <h2>10. Plan from here</h2>
 <table>
   <tr><th style="width:5%">#</th><th style="width:38%">Task</th><th style="width:12%">Owner</th><th>Done when</th></tr>
-  <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td>Smoke test passes against containers</td></tr>
+  <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td class="ok">Done: smoke test passes against containers</td></tr>
   <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>All</td><td>Dashboard drives the real cluster</td></tr>
   <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Testing teammate</td><td>Results file and two charts produced</td></tr>
-  <tr><td>4</td><td>Deploy three nodes to AWS regions</td><td>Engine / infra</td><td>Partition triggered live across regions</td></tr>
+  <tr><td>4</td><td>Deploy three nodes to AWS regions</td><td>Engine / infra</td><td class="ok">Done: partition and heal verified across regions</td></tr>
   <tr><td>5</td><td>Rehearse the demo twice, with a laptop-only fallback</td><td>All</td><td>Runs without venue Wi-Fi</td></tr>
   <tr><td>6</td><td>Feature freeze, final report and slides</td><td>All</td><td>Submission ready</td></tr>
 </table>
@@ -399,7 +405,8 @@ it is not claimed in this report.</p>
   <tr><td>Integration of work from several people</td><td>Shared API contract, mock-first development, fixed integration checkpoints.</td></tr>
   <tr><td>Cloud setup or venue network failure during the demo</td><td>Identical local cluster as a fallback.</td></tr>
   <tr><td>Cost of running three cloud machines</td><td>Small instances, billing alarm already set, tagged resources and a one-command teardown.</td></tr>
-  <tr><td>Not production hardened</td><td>No authentication between nodes yet; SQLite per node; not load tested. Appropriate for the 24-hour prototype scope.</td></tr>
+  <tr><td>Security is prototype-grade</td><td>Admin, sync and operator endpoints need a shared secret, but it travels over plain HTTP and anyone can create or read reports. HTTPS, per-user identity and signed messages are the production answer.</td></tr>
+  <tr><td>Not load tested</td><td>SQLite per node and three nodes only. The prototype proves behaviour under faults, not throughput.</td></tr>
   <tr><td>Urgent-first catch-up sync</td><td>Not built: it conflicts with the in-order rule that keeps conflict detection correct. We do not claim it.</td></tr>
 </table>
 </section>
@@ -435,7 +442,7 @@ it is not claimed in this report.</p>
 </ul>
 <div class="footer-note">
   Technical claims about other products marked "general knowledge" were not re-verified during our research.
-  All performance figures are from a local three-node cluster unless stated otherwise.
+  Performance figures come from single runs measured from a laptop, on a local cluster and on three AWS regions as labelled.
 </div>
 </section>
 

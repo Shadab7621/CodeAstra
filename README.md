@@ -27,6 +27,31 @@ Each node keeps its database in a Docker volume, so data survives restarts and c
 Check it end to end with `python infra\smoke_test.py` (needs the packages from `engine\requirements.txt`,
 or use the venv below). Do not run Docker and `infra\run_cluster.py` at the same time: they use the same ports.
 
+## Deploy to AWS (three regions)
+
+Needs the AWS CLI profile `codeastra` with EC2 permission. Creates one small instance per
+region (Mumbai, Hyderabad, Singapore), tagged `project=codeastra`.
+
+```powershell
+python infra\aws_cluster.py up --public mum hyd sin   # deploy; --public opens the node ports
+python infra\aws_cluster.py status                    # state, address and health of each node
+python infra\aws_cluster.py check                     # create a report, verify the token rules
+python infra\aws_cluster.py token                     # the admin token (give it to the dashboard)
+python infra\aws_cluster.py down                      # remove everything and stop the cost
+```
+
+Run the end-to-end test against the cloud cluster:
+
+```powershell
+$env:CLUSTER_URLS = "mum=http://<mum-ip>:8001,hyd=http://<hyd-ip>:8002,sin=http://<sin-ip>:8003"
+$env:ADMIN_TOKEN  = (Get-Content infra\.admin_token).Trim()
+python infra\smoke_test.py
+```
+
+The token (`infra\.admin_token`) is created on first deploy and is git-ignored. It protects
+`/admin/*`, `/sync` and conflict resolution; creating and reading reports stays open.
+Three small instances cost about three cents an hour, so run `down` when you are finished.
+
 ## Run the engine locally (without Docker)
 
 ```powershell
