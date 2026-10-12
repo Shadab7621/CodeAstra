@@ -28,7 +28,7 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
     <header className="topbar">
       <button className="brand" onClick={onHome} aria-label="Back to the landing page">
         <Mark className="brand-mark" />
-        CodeAstra
+        DisasterSync
       </button>
       <span className="spacer" />
       <Segmented

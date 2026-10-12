@@ -80,7 +80,7 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
       </div>
 
       <nav className="hero-nav">
-        <span className="brand"><Mark className="brand-mark" />CodeAstra</span>
+        <span className="brand"><Mark className="brand-mark" />DisasterSync</span>
         <div className="hero-links">
           <button onClick={() => onEnter('overview')}>Console</button>
           <button onClick={() => onEnter('infrastructure')}>Infrastructure</button>
@@ -182,7 +182,7 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
         </motion.div>
       </section>
 
-      <footer className="hero-foot">CodeAstra 2.0 · Cloud Computing and Distributed Systems</footer>
+      <footer className="hero-foot">DisasterSync · Built for CodeAstra 2.0 · Cloud Computing and Distributed Systems</footer>
     </motion.div>
   );
 }
