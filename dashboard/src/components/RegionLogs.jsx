@@ -69,13 +69,6 @@ const ClockIcon = () => (
   </svg>
 );
 
-const DatabaseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-  </svg>
-);
 
 const GlobeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -208,21 +201,10 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
   const health = nodeHealth(node);
   const regionInfo = REGION_META[region] || { index: 1, continent: 'Asia' };
   const eventCount = node?.status?.event_count ?? (entries ? entries.length : 0);
-  const rawUrl = urls[region] || '';
-  const sourceLabel = rawUrl.replace(/^https?:\/\//, '') || `${region}:800${regionInfo.index}`;
   const lastUpdatedText = entries && entries.length > 0 ? relativeTime(entries[0].ts) : '—';
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Region logs</h1>
-          <p className="page-sub">
-            View system logs for each region to monitor updates, synchronization, conflicts and faults.
-          </p>
-        </div>
-      </div>
-
       <div className="rl-card">
         {/* Row 1: Region Identity & Region Pills */}
         <div className="rl-header-row">
@@ -297,18 +279,6 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
               <div className="rl-metric-text">
                 <span className="rl-metric-lbl">Last updated</span>
                 <span className="rl-metric-val">{lastUpdatedText}</span>
-              </div>
-            </div>
-
-            <div className="rl-vdiv" aria-hidden="true" />
-
-            <div className="rl-metric-item">
-              <div className="rl-metric-icon">
-                <DatabaseIcon />
-              </div>
-              <div className="rl-metric-text">
-                <span className="rl-metric-lbl">Source</span>
-                <span className="rl-metric-val mono">{sourceLabel}</span>
               </div>
             </div>
           </div>
