@@ -78,7 +78,7 @@
     merges safely when it returns, and tells operators exactly what is at risk.</div>
   <div class="stats">
     <div class="stat"><b>3</b><span>replicas live on AWS (Mumbai, Hyderabad, Singapore)</span></div>
-    <div class="stat"><b>68</b><span>automated tests passing</span></div>
+    <div class="stat"><b>72</b><span>automated tests passing</span></div>
     <div class="stat"><b>0%</b><span>edits silently lost, vs 42% for last-writer-wins (100 trials each)</span></div>
     <div class="stat"><b>&lt;1 s</b><span>to converge after healing, across 3 AWS regions</span></div>
   </div>
@@ -350,7 +350,7 @@ available design, and consensus would reintroduce the exact failure we are avoid
 <h3>Measured results</h3>
 <table>
   <tr><th style="width:42%">Check</th><th style="width:29%">Local cluster</th><th>Three AWS regions</th></tr>
-  <tr><td>Automated tests</td><td colspan="2">68 passed</td></tr>
+  <tr><td>Automated tests</td><td colspan="2">72 passed</td></tr>
   <tr><td>Random fault runs (writes, partitions, crashes, clock skew)</td><td colspan="2">25 seeds: always converged, no acknowledged write lost, identical ledgers</td></tr>
   <tr><td>End-to-end smoke test (replicate, partition, heal, crash)</td><td>12 of 12 passed</td><td>12 of 12 passed</td></tr>
   <tr><td>Report appears in another region</td><td>0.3 to 0.5 s</td><td>0.17 s</td></tr>

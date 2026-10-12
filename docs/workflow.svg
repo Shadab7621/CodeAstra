@@ -124,5 +124,5 @@
   </g>
 
   <!-- footer -->
-  <text x="960" y="1062" font-size="20" fill="#334155" text-anchor="middle">Verified: 68 automated tests · 100 fault trials: 0% of edits silently lost vs 42% for last-writer-wins · hash-chained history · converges in under 1 s across 3 AWS regions</text>
+  <text x="960" y="1062" font-size="20" fill="#334155" text-anchor="middle">Verified: 72 automated tests · 100 fault trials: 0% of edits silently lost vs 42% for last-writer-wins · hash-chained history · converges in under 1 s across 3 AWS regions</text>
 </svg>
