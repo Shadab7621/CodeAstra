@@ -112,6 +112,13 @@ class SyncManager:
 
         self._reconnecting(peer)  # snapshot what this region holds before anything is replayed
         applied = node.apply_remote(body["events"], epoch)
+        if applied:
+            from .merge import NODE_NAMES
+            name = NODE_NAMES.get(peer.id, peer.id)
+            node.activity.record(
+                "sync", f"Received {applied} change{'s' if applied != 1 else ''} from {name}",
+                peer=peer.id, applied=applied)
+            node.note_conflicts()
         if epoch == node.epoch:
             self._learn(peer.id, body["vv"])
         return self._mark(peer, True, None, applied)
@@ -120,13 +127,28 @@ class SyncManager:
         return [self.sync_peer(peer) for peer in self.peers]
 
     def _mark(self, peer: Peer, reachable: bool, reason: Optional[str], applied: int = 0) -> dict:
+        was_reachable, first_contact = peer.reachable, peer.last_sync is None
         peer.reachable, peer.reason = reachable, reason
+        if reachable != was_reachable:
+            self._log_link(peer, reachable, reason, first_contact)
         if reachable:
             peer.last_sync = time.monotonic()
             peer.last_sync_wall = time.time()
         self._track_outage(peer, reachable, applied)
         return {"id": peer.id or peer.url, "reachable": reachable, "reason": reason,
                 "applied": applied}
+
+    def _log_link(self, peer: Peer, reachable: bool, reason: Optional[str],
+                  first_contact: bool) -> None:
+        from .merge import NODE_NAMES
+        name = NODE_NAMES.get(peer.id, peer.id or peer.url)
+        if reachable:
+            text = f"Connected to {name}" if first_contact else f"Link to {name} is back"
+            self.node.activity.record("sync", text, peer=peer.id, reachable=True)
+        else:
+            why = (reason or "unreachable").replace("_", " ")
+            self.node.activity.record("sync", f"Lost contact with {name} ({why})", "warn",
+                                      peer=peer.id, reachable=False, reason=reason)
 
     # ---- recovery reports ------------------------------------------------------------------
     # An episode starts when a link that was working goes down, snapshots the region ("before"),
@@ -214,9 +236,13 @@ class SyncManager:
                 "changes": {"reports_added": added, "reports_changed": changed},
             })
             ep["summary"] = self._summary(ep)
+            summary, tone = ep["summary"], ("warn" if needs or failed else "info")
             self.episodes.append(ep)
             del self.episodes[:-20]
             t["episode"], t["down_at"], t["before"], t["conflict_ids"] = None, None, None, set()
+        self.node.activity.record("recovery", summary, tone, peer=ep["peer"],
+                                  received=ep["received"], sent=ep["sent"],
+                                  conflicts=ep["conflicts"]["new"], failed=ep["failed"])
 
     @staticmethod
     def _summary(ep: dict) -> str:
@@ -228,7 +254,9 @@ class SyncManager:
                          f"{n['new']} conflict{'s' if n['new'] != 1 else ''} "
                          f"({n['auto_resolved']} auto-resolved, {n['needs_operator']} waiting "
                          "for an operator)")
-        return (f"Link to {name} restored after {seconds} s. {ep['received']} changes received, "
+        def changes(n: int) -> str:
+            return f"{n} change{'s' if n != 1 else ''}"
+        return (f"Link to {name} restored after {seconds} s. {changes(ep['received'])} received, "
                 f"{ep['sent']} sent, {conflict_text}, {ep['failed']} failed.")
 
     def recovery(self) -> dict:

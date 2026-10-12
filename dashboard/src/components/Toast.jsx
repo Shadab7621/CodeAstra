@@ -1,4 +1,4 @@
-﻿import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 const ToastContext = createContext(() => {});
@@ -6,10 +6,15 @@ const ToastContext = createContext(() => {});
 export function ToastProvider({ children }) {
   const [items, setItems] = useState([]);
 
-  const push = useCallback((text, tone = 'ok') => {
+  const push = useCallback((text, tone = 'ok', title = '') => {
     const id = Math.random().toString(36).slice(2);
-    setItems((list) => [...list, { id, text, tone }]);
-    setTimeout(() => setItems((list) => list.filter((i) => i.id !== id)), 4500);
+    const resolvedTitle = title || (tone === 'ok' ? 'Success' : tone === 'bad' ? 'Error' : 'Notice');
+    setItems((list) => [...list, { id, text, tone, title: resolvedTitle }]);
+    setTimeout(() => setItems((list) => list.filter((i) => i.id !== id)), 4000);
+  }, []);
+
+  const remove = useCallback((id) => {
+    setItems((list) => list.filter((i) => i.id !== id));
   }, []);
 
   return (
@@ -22,12 +27,26 @@ export function ToastProvider({ children }) {
               key={t.id}
               className={`toast ${t.tone}`}
               layout
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              initial={{ opacity: 0, y: -28, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 24 }}
-              transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+              exit={{ opacity: 0, y: -20, scale: 0.92 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 320 }}
             >
-              {t.text}
+              <div className={`toast-badge ${t.tone}`}>
+                {t.tone === 'ok' ? '✓' : t.tone === 'bad' ? '✕' : 'ℹ'}
+              </div>
+              <div className="toast-content">
+                {t.title && <div className="toast-title">{t.title}</div>}
+                <div className="toast-msg">{t.text}</div>
+              </div>
+              <button
+                type="button"
+                className="toast-close"
+                onClick={() => remove(t.id)}
+                aria-label="Dismiss notification"
+              >
+                ×
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>

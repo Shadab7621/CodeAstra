@@ -15,9 +15,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from .activity import ActivityLog
 from .config import VALID_NODES, Config
 from .hlc import HLC, HybridClock
-from .merge import STATUS_ORDER, merge_all, state_hash
+from .merge import NODE_NAMES, STATUS_ORDER, merge_all, state_hash
 from .models import ClockBody, PeerBody, ReportCreate, ReportPatch, ResolveBody, SyncBody
 from .store import EventStore
 from .sync import SyncManager
@@ -37,7 +38,12 @@ class NodeState:
         self.blocked: set[str] = set()  # peer node ids we refuse to talk to
         self.lock = threading.RLock()   # guards reset against incoming events
         self._view = None
+        self.activity = ActivityLog(config.node_id, config.mongo_uri, cluster=config.cluster)
         self.sync = SyncManager(self, post)
+        self._logged_conflicts = {c["conflict_id"] for c in self.view()[1]}
+        self.activity.record("startup", f"{NODE_NAMES.get(config.node_id, config.node_id)} node "
+                             f"started (epoch {self.epoch}, {self.store.event_count()} events)",
+                             epoch=self.epoch, events=self.store.event_count())
 
     @property
     def epoch(self) -> int:
@@ -113,12 +119,25 @@ class NodeState:
                     applied += 1
             return applied
 
+    def note_conflicts(self) -> None:
+        """Log conflicts that appeared since the last call (after a local write or a sync)."""
+        fresh = [c for c in self.view()[1] if c["conflict_id"] not in self._logged_conflicts]
+        for c in fresh:
+            self._logged_conflicts.add(c["conflict_id"])
+            self.activity.record(
+                "conflict", f"Conflict on {c['field']}: {c['explanation']}",
+                "warn" if c["status"] == "needs_operator" else "info",
+                report_id=c["report_id"], field=c["field"], status=c["status"])
+
     def reset(self) -> None:
         with self.lock:
             self.store.reset()
             self.blocked.clear()
             self.clock.offset_ms = 0
             self.sync.forget()
+            self._logged_conflicts.clear()
+        self.activity.record("reset", "Node reset: all reports and history wiped, new epoch "
+                             f"{self.epoch}", "warn", epoch=self.epoch)
 
 
 def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
@@ -133,6 +152,7 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
             state.sync.start()
         yield
         state.sync.stop()
+        state.activity.close()
 
     app = FastAPI(title=f"DisasterSync node {config.node_id}", lifespan=lifespan)
     app.state.node = state
@@ -155,7 +175,8 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
                     content={"error": "unauthorized",
                              "message": "missing or wrong X-Admin-Token header"},
                 )
-        open_while_paused = path in ("/healthz", "/admin/resume", "/", "/cluster") or path.startswith("/ui")
+        open_while_paused = (path in ("/healthz", "/admin/resume", "/", "/cluster", "/logs")
+                           or path.startswith("/ui"))
         if state.paused and not open_while_paused:
             return JSONResponse(
                 status_code=503,
@@ -217,6 +238,17 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
                           "recent": state.store.violations[-5:]},
             "peers": state.sync.peer_status(),
         }
+
+    @app.get("/logs")
+    def logs(region: Optional[str] = None, limit: int = 100, kind: Optional[str] = None):
+        """Activity log of one region (default: this node), newest first. Any node can serve
+        any region's log while Atlas is reachable, so a crashed region's log stays readable."""
+        region = region or config.node_id
+        if region not in VALID_NODES:
+            error(400, "bad_request", f"unknown region {region}")
+        entries, source = state.activity.entries(region, limit, kind)
+        return {"node_id": config.node_id, "region": region, "source": source,
+                "storage": state.activity.storage(), "entries": entries}
 
     @app.get("/recovery")
     def recovery():
@@ -285,6 +317,10 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
             "reporter": body.reporter,
         }
         event = state.store.append_local(report_id, "create", fields, state.clock.now())
+        state.activity.record(
+            "write", f"Report {report_id[:8]} created ({body.incident_type.value}, severity "
+            f"{body.severity}); stored locally", report_id=report_id, event_id=event["event_id"])
+        state.note_conflicts()
         return {"report_id": report_id, "event_id": event["event_id"], "durability": "local"}
 
     @app.patch("/reports/{report_id}")
@@ -295,6 +331,10 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
         if not changes:
             error(400, "bad_request", "no fields to update")
         event = state.store.append_local(report_id, "update", changes, state.clock.now())
+        state.activity.record(
+            "write", f"Report {report_id[:8]} updated ({', '.join(sorted(changes))}); stored "
+            "locally", report_id=report_id, event_id=event["event_id"], fields=sorted(changes))
+        state.note_conflicts()
 
         # The write is always recorded, but escalate-only rules may keep a higher value.
         warnings = []
@@ -341,6 +381,10 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
         }
         state.store.append_local(entry["report_id"], "operator_resolve", fields,
                                  state.clock.now())
+        state.activity.record(
+            "resolve", f"{body.operator} resolved the {entry['field']} conflict on report "
+            f"{entry['report_id'][:8]}", report_id=entry["report_id"], field=entry["field"],
+            operator=body.operator)
         return state.conflict(conflict_id)
 
     # ---- admin / fault injection (contract 5.4) ------------------------------------------
@@ -350,26 +394,39 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
         if body.peer not in VALID_NODES or body.peer == config.node_id:
             error(400, "bad_request", f"unknown peer {body.peer}")
         state.blocked.add(body.peer)
+        state.activity.record(
+            "link", f"Link to {NODE_NAMES.get(body.peer, body.peer)} cut (simulated partition)",
+            "warn", peer=body.peer, action="cut")
         return {"ok": True, "blocked": sorted(state.blocked)}
 
     @app.post("/admin/unblock")
     def unblock(body: PeerBody):
         state.blocked.discard(body.peer)
+        state.activity.record(
+            "link", f"Link to {NODE_NAMES.get(body.peer, body.peer)} restored", peer=body.peer,
+            action="restore")
         return {"ok": True, "blocked": sorted(state.blocked)}
 
     @app.post("/admin/clock")
     def set_clock(body: ClockBody):
         state.clock.offset_ms = body.offset_ms
+        state.activity.record(
+            "clock", "Clock back to normal" if not body.offset_ms else
+            f"Clock skewed by {body.offset_ms / 3600000:+.1f} h", "warn" if body.offset_ms else
+            "info", offset_ms=body.offset_ms)
         return {"ok": True, "clock_offset_ms": state.clock.offset_ms}
 
     @app.post("/admin/pause")
     def pause():
         state.paused = True
+        state.activity.record("pause", "Node paused: rejecting requests like a crashed server",
+                              "bad")
         return {"ok": True, "paused": True}
 
     @app.post("/admin/resume")
     def resume():
         state.paused = False
+        state.activity.record("resume", "Node resumed and serving requests")
         return {"ok": True, "paused": False}
 
     @app.post("/admin/reset")

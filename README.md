@@ -83,10 +83,10 @@ instances) and `python infra\azure_cluster.py update sin` (in place).
 - **Overview**: regions, records, conflict ledger and history check, with an Engine / Baseline switch.
 - **Infrastructure**: the live deployment. Provider zones (AWS, Azure), each server's machine type,
   address, round-trip latency, chain head, and the replication links between regions.
-- **Live tests**: the terminal smoke test, run from the browser against the selected cluster
-  (local, or AWS and Azure). Twelve checks with timings, non-destructive, while the topology
-  animates. On the cloud it needs the admin token in Settings.
 - **Compare**: the same link failure run on our engine and on the last-writer-wins baseline.
+- **Logs**: each region's activity (writes, links, sync, conflicts, recoveries), stored in
+  MongoDB Atlas. Click a region on the Infrastructure page to open its log. The Atlas address goes
+  in the git-ignored `infra/.mongo_uri`.
 - A **Local / Cloud** switch chooses which cluster the console talks to.
 - Cut and restore links, simulate a crash or a fast clock, create and edit records, decide conflicts,
   verify the hash chains.

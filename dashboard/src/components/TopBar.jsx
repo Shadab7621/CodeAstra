@@ -26,29 +26,35 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
   const cloud = env === 'cloud';
   return (
     <header className="topbar">
-      <button className="brand" onClick={onHome} aria-label="Back to the landing page">
-        <Mark className="brand-mark" />
-        DisasterSync
-      </button>
-      <span className="spacer" />
-      <Segmented
-        id="view" label="Section" value={view} onChange={onView}
-        options={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'infrastructure', label: 'Infrastructure' },
-          { value: 'tests', label: 'Live tests' },
-          { value: 'compare', label: 'Compare', disabled: cloud, title: cloud ? 'The comparison runs on the local clusters' : undefined },
-        ]}
-      />
-      <span className="spacer" />
-      <Segmented
-        id="env" label="Environment" value={env} onChange={onEnv}
-        options={[{ value: 'local', label: 'Local' }, { value: 'cloud', label: 'Cloud' }]}
-      />
-      <button className="icon-btn" onClick={onSettings} aria-label="Settings"><Gear /></button>
-      <button className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
-        {theme === 'dark' ? <Sun /> : <Moon />}
-      </button>
+      <div className="topbar-left">
+        <button className="brand" onClick={onHome} aria-label="Back to the landing page">
+          <Mark className="brand-mark" />
+          <span className="brand-name">DisasterSync</span>
+        </button>
+      </div>
+
+      <div className="topbar-center">
+        <Segmented
+          id="view" label="Section" value={view} onChange={onView}
+          options={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'infrastructure', label: 'Infrastructure' },
+            { value: 'compare', label: 'Compare', disabled: cloud, title: cloud ? 'The comparison runs on the local clusters' : undefined },
+            { value: 'logs', label: 'Logs' },
+          ]}
+        />
+      </div>
+
+      <div className="topbar-right">
+        <Segmented
+          id="env" label="Environment" value={env} onChange={onEnv}
+          options={[{ value: 'local', label: 'Local' }, { value: 'cloud', label: 'Cloud' }]}
+        />
+        <button className="icon-btn" onClick={onSettings} aria-label="Settings"><Gear /></button>
+        <button className="icon-btn" onClick={onToggleTheme} aria-label="Toggle light and dark theme">
+          {theme === 'dark' ? <Sun /> : <Moon />}
+        </button>
+      </div>
     </header>
   );
 }

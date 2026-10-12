@@ -23,6 +23,7 @@ Re-running `up` with a different set of nodes replaces instances whose config ch
 """
 import hashlib
 import json
+import os
 import re
 import secrets
 import sys
@@ -43,7 +44,7 @@ NODES = {  # node id -> (region, port)
     "hyd": ("ap-south-2", 8002),
     "sin": ("ap-southeast-1", 8003),
 }
-USER_DATA_VERSION = "5"  # bump when user_data() changes so `up` replaces old instances
+USER_DATA_VERSION = "6"  # bump when user_data() changes so `up` replaces old instances
 TAGS = [{"Key": "project", "Value": "codeastra"}]
 TOKEN_FILE = Path(__file__).resolve().parent / ".admin_token"   # git-ignored
 session = boto3.Session(profile_name=PROFILE)
@@ -56,6 +57,19 @@ def admin_token() -> str:
     token = secrets.token_urlsafe(24)
     TOKEN_FILE.write_text(token)
     return token
+
+
+MONGO_FILE = Path(__file__).resolve().parent / ".mongo_uri"   # git-ignored
+
+
+def mongo_uri() -> str:
+    """MongoDB Atlas connection string for the activity log, or "" to keep logs in memory."""
+    uri = os.environ.get("MONGODB_URI", "").strip()
+    if not uri and MONGO_FILE.exists():
+        uri = MONGO_FILE.read_text().strip()
+    if "'" in uri or '"' in uri or " " in uri:
+        raise SystemExit("MONGODB_URI must not contain quotes or spaces")
+    return uri
 
 
 def ec2(region):
@@ -121,7 +135,8 @@ def allow(client, sg_id, port, cidr):
             raise
 
 
-def user_data(node, port, peers, token):
+def user_data(node, port, peers, token, mongo=""):
+    mongo_flag = f'\\\n  -e MONGODB_URI="{mongo}" ' if mongo else " "
     return f"""#!/bin/bash
 set -x
 dnf install -y docker git
@@ -132,7 +147,7 @@ docker build -f engine/Dockerfile -t codeastra-engine .
 set +x   # do not echo the next command: it contains the admin token
 docker run -d --name node --restart unless-stopped -p {port}:{port} -v codeastra-data:/data \\
   -e NODE_ID={node} -e PORT={port} -e PEERS="{peers}" -e MODE=crdt -e DB_PATH=/data/{node}.db \\
-  -e ADMIN_TOKEN="{token}" codeastra-engine
+  -e ADMIN_TOKEN="{token}" -e CLUSTER_NAME=cloud {mongo_flag}codeastra-engine
 set -x
 
 # Self-check, printed to the boot log (read it with: aws_cluster.py logs <node>).
@@ -169,8 +184,10 @@ def up(nodes, public=False, extra_peers=None):
         peer_list += [f"{k}={v}" for k, v in sorted(extra_peers.items())]
         peers = ",".join(peer_list)
         token_tag = hashlib.sha1(token.encode()).hexdigest()[:6]
+        mongo = mongo_uri()
+        mongo_tag = hashlib.sha1(mongo.encode()).hexdigest()[:6] if mongo else "none"
         config_hash = hashlib.sha1(
-            f"{USER_DATA_VERSION}|{peers}|{token_tag}".encode()).hexdigest()[:10]
+            f"{USER_DATA_VERSION}|{peers}|{token_tag}|{mongo_tag}".encode()).hexdigest()[:10]
 
         sg_id = ensure_security_group(client)
         allow(client, sg_id, port, "0.0.0.0/0" if public else f"{ip}/32")
@@ -197,7 +214,7 @@ def up(nodes, public=False, extra_peers=None):
         spec["Tags"].append({"Key": "peers-hash", "Value": config_hash})
         created = client.run_instances(
             ImageId=ami, InstanceType=INSTANCE_TYPE, MinCount=1, MaxCount=1,
-            SecurityGroupIds=[sg_id], UserData=user_data(n, port, peers, token),
+            SecurityGroupIds=[sg_id], UserData=user_data(n, port, peers, token, mongo),
             MetadataOptions={"HttpTokens": "required"},
             TagSpecifications=[spec, tag_spec("volume", n)])
         instance_id = created["Instances"][0]["InstanceId"]
@@ -297,7 +314,8 @@ def logs(node):
         sys.exit(f"{node}: no instance")
     out = client.get_console_output(InstanceId=instance["InstanceId"], Latest=True).get("Output")
     lines = [l.encode("ascii", "replace").decode() for l in (out or "").replace("\r", "").split("\n")]
-    keep = [re.sub(r"ADMIN_TOKEN=\S+", "ADMIN_TOKEN=***", l)   # never print the secret
+    keep = [re.sub(r"MONGODB_URI=\S+", "MONGODB_URI=***",
+                   re.sub(r"ADMIN_TOKEN=\S+", "ADMIN_TOKEN=***", l))   # never print secrets
             for l in lines if "cloud-init[" in l and " #" not in l]  # skip docker build noise
     print("\n".join(keep[-60:]) or "(no output yet, the server is still booting)")
 
