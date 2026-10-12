@@ -5,6 +5,7 @@ Run a node with:  uvicorn engine.app.main:create_app --factory --port 8001
 import hmac
 import os
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Callable, Optional
@@ -61,6 +62,26 @@ class NodeState:
                     top[e["origin"]] = max(top.get(e["origin"], 0), e["seq"])
             self._view = (version, reports, conflicts, digest, needs)
         return self._view[1], self._view[2], self._view[3], self._view[4]
+
+    def snapshot(self) -> dict:
+        """What this region holds right now, compact enough to keep before/during/after copies."""
+        reports, conflicts, digest, _ = self.view()
+        counts: dict[str, int] = {}
+        for c in conflicts:
+            counts[c["status"]] = counts.get(c["status"], 0) + 1
+        return {
+            "taken_at": time.time(),
+            "event_count": self.store.event_count(),
+            "state_hash": digest,
+            "report_count": len(reports),
+            "conflicts": counts,
+            "reports": [
+                {"report_id": r["report_id"], "severity": r.get("severity"),
+                 "status": r.get("status"), "location": r.get("location"),
+                 "description": (r.get("description") or "")[:200]}
+                for r in reports[:100]
+            ],
+        }
 
     def report(self, report_id: str) -> Optional[dict]:
         return next((r for r in self.view()[0] if r["report_id"] == report_id), None)
@@ -196,6 +217,12 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
                           "recent": state.store.violations[-5:]},
             "peers": state.sync.peer_status(),
         }
+
+    @app.get("/recovery")
+    def recovery():
+        """One report per outage: what this region held before, while cut off and after, and
+        what the reconnect did (changes received/sent, conflicts, failures)."""
+        return {"node_id": config.node_id, **state.sync.recovery()}
 
     @app.get("/audit/verify")
     def audit_verify():

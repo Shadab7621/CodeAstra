@@ -219,6 +219,32 @@ these endpoints require the HTTP header `X-Admin-Token: <token>` and otherwise r
 - Fix: `401` and `503` responses now carry cross-origin headers. Before, a browser could not read
   them and reported a network error, so a paused node looked unreachable.
 
+### 3.11 Explanations, last sync time and recovery reports (v1.6) - additive
+
+- Every conflict ledger entry gains `explanation` (a plain-words sentence: who set what, which
+  rule decided, what was kept) and `winner` (`{event_id, origin, value}` of the version that
+  supplied the final value, or `null` while status is `needs_operator`). `resolution` is unchanged.
+- Every row of `status.peers` gains `last_sync_at` (unix seconds of the last successful pull from
+  that peer, or `null`). `last_sync_ms_ago` already existed.
+- `GET /recovery` (open, read-only) returns `{ node_id, episodes: [...], in_progress: [...] }`.
+  An episode starts when a link that was working goes down and finishes once two sync rounds in a
+  row exchange nothing. The last 20 are kept; `POST /admin/reset` clears them.
+
+```json
+{ "peer": "hyd", "status": "recovered", "summary": "Link to Hyderabad restored after 42 s. ...",
+  "outage_started_at": 1760000000.0, "reconnected_at": 1760000042.0, "recovered_at": 1760000044.0,
+  "outage_ms": 42000, "received": 12, "sent": 9,
+  "conflicts": { "new": 2, "auto_resolved": 1, "needs_operator": 1 },
+  "failed": 0, "changes": { "reports_added": 3, "reports_changed": 2 },
+  "before": SNAPSHOT, "during": SNAPSHOT, "after": SNAPSHOT }
+```
+
+`SNAPSHOT` is `{ taken_at, event_count, state_hash, report_count, conflicts: {status: n},
+reports: [{report_id, severity, status, location, description}] }`: `before` when the link went
+down, `during` when it came back (what the region held while cut off, before any replay) and
+`after` once caught up. `failed` counts events the node rejected during the episode (forged or
+tampered). `received` and `sent` are change counts from that peer's perspective of this node.
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.
