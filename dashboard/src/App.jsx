@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import Compare from './components/Compare';
 import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
-import LiveTests from './components/LiveTests';
 import Overview from './components/Overview';
 import RegionLogs from './components/RegionLogs';
 import Settings from './components/Settings';
@@ -14,7 +13,7 @@ import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'tests', 'compare', 'logs'];
+const VIEWS = ['overview', 'infrastructure', 'compare', 'logs'];
 
 // A hash such as #overview, #infrastructure or #compare opens the console directly.
 function fromHash() {
@@ -125,9 +124,6 @@ export default function App() {
                     )}
                     {view === 'logs' && (
                       <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
-                    )}
-                    {view === 'tests' && (
-                      <LiveTests urls={current.engine} meta={meta} token={token} env={env} />
                     )}
                     {view === 'overview' && (
                       <Overview
