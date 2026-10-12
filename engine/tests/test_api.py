@@ -139,6 +139,48 @@ def test_restarted_node_keeps_stamping_forwards(tmp_path):
     assert restarted.get(f"/reports/{rid}").json()["description"] == "after restart"
 
 
+def test_token_protects_admin_sync_and_operator_endpoints():
+    app = create_app(Config(node_id="mum", port=8001, db_path=":memory:", admin_token="s3cret"))
+    c = TestClient(app)
+    good = {"X-Admin-Token": "s3cret"}
+
+    # Open: health, status, reading and creating reports, history, conflicts list.
+    assert c.get("/healthz").status_code == 200
+    assert c.get("/status").status_code == 200
+    rid = c.post("/reports", json=REPORT).json()["report_id"]
+    assert c.get(f"/reports/{rid}").status_code == 200
+    assert c.patch(f"/reports/{rid}", json={"severity": 5}).status_code == 200
+    assert c.get("/conflicts").status_code == 200
+
+    # Protected: no header, or a wrong one, gives 401 and changes nothing.
+    for headers in ({}, {"X-Admin-Token": "nope"}):
+        assert c.post("/admin/pause", headers=headers).status_code == 401
+        assert c.post("/admin/reset", headers=headers).status_code == 401
+        assert c.post("/admin/clock", json={"offset_ms": 5}, headers=headers).status_code == 401
+        assert c.post("/sync", json={"sender": "hyd", "epoch": 0, "vv": {}},
+                      headers=headers).status_code == 401
+        assert c.post("/conflicts/x/resolve", json={
+            "chosen_event_id": "e", "operator": "o"}, headers=headers).status_code == 401
+    assert c.get("/status").json()["paused"] is False
+    assert c.get("/status").json()["clock_offset_ms"] == 0
+
+    # With the token the same calls work, including resume while paused.
+    assert c.post("/admin/pause", headers=good).status_code == 200
+    assert c.get("/reports").status_code == 503
+    assert c.post("/admin/resume").status_code == 401          # token still required
+    assert c.post("/admin/resume", headers=good).status_code == 200
+    assert c.post("/sync", json={"sender": "hyd", "epoch": 0, "vv": {}},
+                  headers=good).status_code == 200
+    # Browser pre-flight requests must not be rejected.
+    assert c.options("/admin/pause", headers={
+        "Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "x-admin-token"}).status_code == 200
+
+
+def test_no_token_configured_means_open(client):
+    assert client.post("/admin/clock", json={"offset_ms": 1}).status_code == 200
+
+
 def test_events_ids_only_lists_every_acknowledged_write(client):
     ids = [client.post("/reports", json=REPORT).json()["event_id"] for _ in range(3)]
     listed = client.get("/events", params={"ids_only": "true"}).json()["event_ids"]

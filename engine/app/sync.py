@@ -22,7 +22,7 @@ import httpx
 from .config import VALID_NODES
 
 MAX_EVENTS_PER_SYNC = 500
-REASON_BY_STATUS = {403: "blocked", 409: "epoch_mismatch", 503: "paused"}
+REASON_BY_STATUS = {401: "unauthorized", 403: "blocked", 409: "epoch_mismatch", 503: "paused"}
 
 
 @dataclass
@@ -58,9 +58,9 @@ class SyncManager:
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
-    def _http_post(self, url: str, payload: dict):
+    def _http_post(self, url: str, payload: dict, headers: Optional[dict] = None):
         try:
-            r = self._client.post(url, json=payload)
+            r = self._client.post(url, json=payload, headers=headers)
             return r.status_code, r.json()
         except (httpx.HTTPError, ValueError):
             return None, {}
@@ -92,8 +92,10 @@ class SyncManager:
             return self._mark(peer, False, "blocked")
 
         epoch = node.epoch
+        token = node.config.admin_token
         status, body = self._post(peer.url + "/sync", {
-            "sender": node.config.node_id, "epoch": epoch, "vv": node.store.version_vector()})
+            "sender": node.config.node_id, "epoch": epoch, "vv": node.store.version_vector()},
+            {"X-Admin-Token": token} if token else None)
         if status != 200:
             return self._mark(peer, False, REASON_BY_STATUS.get(status, "unreachable"))
 

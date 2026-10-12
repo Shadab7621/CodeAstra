@@ -6,6 +6,7 @@ __pycache__/
 .aws/
 credentials
 keys.txt
+.admin_token
 *accessKeys*.csv
 *.exe
 /image.png

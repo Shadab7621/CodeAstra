@@ -18,18 +18,21 @@ REPORT = {
 
 
 class Cluster:
-    def __init__(self):
+    def __init__(self, tokens=None):
+        """tokens: optional {node: admin token}; nodes without an entry run open."""
+        tokens = tokens or {}
         self.c = {}
         for node in NODES:
             peers = [f"{p}=http://{p}" for p in NODES if p != node]
-            app = create_app(Config(node_id=node, port=0, peers=peers, db_path=":memory:"),
+            app = create_app(Config(node_id=node, port=0, peers=peers, db_path=":memory:",
+                                    admin_token=tokens.get(node, "")),
                              post=self.post, start_sync=False)
             self.c[node] = TestClient(app)
 
-    def post(self, url, payload):
+    def post(self, url, payload, headers=None):
         """Stands in for the network: delivers a node-to-node call directly."""
         host, path = url[len("http://"):].split("/", 1)
-        r = self.c[host].post("/" + path, json=payload)
+        r = self.c[host].post("/" + path, json=payload, headers=headers)
         return r.status_code, r.json()
 
     def node(self, name):
@@ -244,6 +247,26 @@ def test_long_outage_catches_up_in_batches(cluster, monkeypatch):
     cluster.sync(rounds=6)
     assert cluster.converged()
     assert cluster.c["sin"].get("/status").json()["event_count"] == 23
+
+
+def test_nodes_with_the_same_token_replicate():
+    cluster = Cluster({n: "shared-secret" for n in NODES})
+    rid = cluster.c["mum"].post("/reports", json=REPORT).json()["report_id"]   # open endpoint
+    cluster.sync()
+    assert cluster.converged()
+    assert cluster.c["sin"].get(f"/reports/{rid}").status_code == 200
+    assert cluster.peer("mum", "hyd")["reachable"] is True
+
+
+def test_node_with_a_different_token_cannot_sync():
+    tokens = {"mum": "right", "hyd": "right", "sin": "wrong"}
+    cluster = Cluster(tokens)
+    rid = cluster.c["mum"].post("/reports", json=REPORT).json()["report_id"]
+    cluster.sync()
+    assert cluster.c["hyd"].get(f"/reports/{rid}").status_code == 200
+    assert cluster.c["sin"].get(f"/reports/{rid}").status_code == 404
+    assert cluster.peer("sin", "mum")["reason"] == "unauthorized"
+    assert cluster.peer("hyd", "sin")["reason"] == "unauthorized"
 
 
 def test_sync_now_endpoint(cluster):

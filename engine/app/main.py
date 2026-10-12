@@ -2,6 +2,7 @@
 
 Run a node with:  uvicorn engine.app.main:create_app --factory --port 8001
 """
+import hmac
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -117,10 +118,25 @@ def create_app(config: Optional[Config] = None, post: Optional[Callable] = None,
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
     )
 
+    def needs_token(path: str) -> bool:
+        """Sensitive endpoints: fault injection, node-to-node sync and operator decisions.
+        Creating and reading reports stays open, so anyone can report an incident."""
+        return (path.startswith("/admin/") or path == "/sync"
+                or (path.startswith("/conflicts/") and path.endswith("/resolve")))
+
     @app.middleware("http")
-    async def pause_gate(request: Request, call_next):
-        """A paused node simulates a crash: everything except healthz/resume returns 503."""
-        if state.paused and request.url.path not in ("/healthz", "/admin/resume"):
+    async def gate(request: Request, call_next):
+        """Token check first, then crash simulation (a paused node returns 503)."""
+        path = request.url.path
+        if config.admin_token and request.method != "OPTIONS" and needs_token(path):
+            supplied = request.headers.get("x-admin-token", "")
+            if not hmac.compare_digest(supplied.encode(), config.admin_token.encode()):
+                return JSONResponse(
+                    status_code=401,
+                    content={"error": "unauthorized",
+                             "message": "missing or wrong X-Admin-Token header"},
+                )
+        if state.paused and path not in ("/healthz", "/admin/resume"):
             return JSONResponse(
                 status_code=503,
                 content={"error": "paused", "message": "node is paused (simulated crash)"},

@@ -3,16 +3,23 @@
 Walks the demo story over real HTTP: replicate, cut the link, edit both sides, heal, converge.
     python infra/smoke_test.py
 """
+import os
 import sys
 import time
 
 import httpx
 
+# Defaults to a local cluster. For a remote one set, for example:
+#   CLUSTER_URLS="mum=http://1.2.3.4:8001,hyd=http://5.6.7.8:8002,sin=http://9.9.9.9:8003"
+#   ADMIN_TOKEN=<value from: python infra/aws_cluster.py token>
 URL = {"mum": "http://127.0.0.1:8001", "hyd": "http://127.0.0.1:8002",
        "sin": "http://127.0.0.1:8003"}
+if os.getenv("CLUSTER_URLS"):
+    URL = dict(item.split("=", 1) for item in os.environ["CLUSTER_URLS"].split(","))
 REPORT = {"incident_type": "flood", "severity": 3, "location": {"lat": 19.076, "lon": 72.877},
           "description": "Water rising", "reporter": "smoke-test"}
-http = httpx.Client(timeout=5.0)
+HEADERS = {"X-Admin-Token": os.environ["ADMIN_TOKEN"]} if os.getenv("ADMIN_TOKEN") else {}
+http = httpx.Client(timeout=5.0, headers=HEADERS)
 failures = []
 
 

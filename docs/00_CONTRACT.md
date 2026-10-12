@@ -172,6 +172,26 @@ Also additive.
   match it. `last_updated.wall` can therefore be ahead of real time. Ordering stays correct;
   do not display `wall` as a real timestamp (use the event's `client_ts`).
 
+### 3.8 Admin token (v1.3) - affects B and C
+
+Optional and additive. When a node is started with the environment variable `ADMIN_TOKEN`,
+these endpoints require the HTTP header `X-Admin-Token: <token>` and otherwise return
+`401 {"error": "unauthorized"}`:
+
+| Needs the token | Stays open (no header) |
+|---|---|
+| everything under `/admin/*` | `/healthz`, `/status`, `/state-hash`, `/events` |
+| `POST /conflicts/{id}/resolve` (operator decision) | `POST` and `PATCH /reports`, all `GET /reports...`, `GET /conflicts` |
+| `POST /sync` (node-to-node, handled automatically) | |
+
+- Local runs and Docker Compose set no token, so nothing changes there.
+- Cloud nodes always have one. Get it with `python infra/aws_cluster.py token`.
+- **B:** send the header on `/admin/*` calls when `ADMIN_TOKEN` is set in your environment.
+- **C:** put the token in your config (never in the repo) and send it on the admin buttons and on
+  "Resolve". Browser pre-flight (`OPTIONS`) requests are always allowed.
+- The token is sent over plain HTTP, so it can be sniffed on an untrusted network. HTTPS is
+  the production answer; it is out of scope for the prototype.
+
 ## 4. Time and sync behaviour (so tests have fixed numbers)
 
 - Nodes sync with each other every **500 ms** in the background.

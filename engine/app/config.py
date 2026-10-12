@@ -12,6 +12,9 @@ class Config:
     peers: list[str] = field(default_factory=list)
     mode: str = "crdt"
     db_path: str = ""
+    # When set, /admin/*, /sync and conflict resolution require the header X-Admin-Token.
+    # Empty means open (local development and tests).
+    admin_token: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -23,4 +26,5 @@ class Config:
             peers=peers,
             mode=os.getenv("MODE", "crdt"),
             db_path=os.getenv("DB_PATH", f"data/{node_id}.db"),
+            admin_token=os.getenv("ADMIN_TOKEN", ""),
         )
