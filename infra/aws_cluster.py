@@ -147,7 +147,7 @@ docker build -f engine/Dockerfile -t codeastra-engine .
 set +x   # do not echo the next command: it contains the admin token
 docker run -d --name node --restart unless-stopped -p {port}:{port} -v codeastra-data:/data \\
   -e NODE_ID={node} -e PORT={port} -e PEERS="{peers}" -e MODE=crdt -e DB_PATH=/data/{node}.db \\
-  -e ADMIN_TOKEN="{token}" {mongo_flag}codeastra-engine
+  -e ADMIN_TOKEN="{token}" -e CLUSTER_NAME=cloud {mongo_flag}codeastra-engine
 set -x
 
 # Self-check, printed to the boot log (read it with: aws_cluster.py logs <node>).

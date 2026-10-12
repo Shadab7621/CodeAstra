@@ -260,6 +260,9 @@ tampered). `received` and `sent` are change counts from that peer's perspective 
   reachable. An entry is `{ id, region, seq, t (unix s), ts (ISO), kind, level (info|warn|bad),
   message, detail }`. Kinds: `startup write resolve link sync conflict recovery pause resume
   clock reset`.
+- Entries carry a `cluster` name (`CLUSTER_NAME`, default `local`; the deploy scripts set
+  `cloud`) and `/logs` only returns the node's own cluster, so a laptop run and the cloud servers
+  can share one Atlas database without mixing their histories.
 - The connection string is a secret: it is read from the environment (`infra/.mongo_uri` locally,
   passed to cloud nodes by the deploy scripts) and never sent to a browser.
 

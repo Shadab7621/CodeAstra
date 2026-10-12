@@ -17,6 +17,8 @@ class Config:
     admin_token: str = ""
     # MongoDB Atlas connection string for the activity log. Empty keeps the log in memory only.
     mongo_uri: str = ""
+    # Names this deployment ("local", "cloud") so logs from different clusters stay separate.
+    cluster: str = "local"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -30,4 +32,5 @@ class Config:
             db_path=os.getenv("DB_PATH", f"data/{node_id}.db"),
             admin_token=os.getenv("ADMIN_TOKEN", ""),
             mongo_uri=os.getenv("MONGODB_URI", ""),
+            cluster=os.getenv("CLUSTER_NAME", "local"),
         )

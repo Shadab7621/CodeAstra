@@ -98,6 +98,20 @@ def test_any_node_serves_another_regions_log_from_atlas():
     assert hyd.get("/logs", params={"region": "nowhere"}).status_code == 400
 
 
+def test_clusters_sharing_one_database_do_not_mix():
+    coll = FakeCollection()
+    app = create_app(Config(node_id="mum", port=0, peers=[], db_path=":memory:", cluster="cloud"),
+                     start_sync=False)
+    cloud, cloud_state = TestClient(app), app.state.node
+    cloud_state.activity = ActivityLog("mum", collection=coll, cluster="cloud")
+    local, local_state = node("mum", coll)
+    cloud.post("/reports", json=REPORT)
+    local.post("/admin/block", json={"peer": "hyd"})
+    assert cloud_state.activity.flush() and local_state.activity.flush()
+    assert {e["kind"] for e in cloud.get("/logs").json()["entries"]} == {"write"}
+    assert {e["kind"] for e in local.get("/logs").json()["entries"]} == {"link"}
+
+
 def test_logs_stay_readable_while_paused():
     client, _ = node()
     client.post("/admin/pause")

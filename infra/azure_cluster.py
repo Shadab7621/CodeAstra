@@ -78,7 +78,7 @@ docker build -f engine/Dockerfile -t codeastra-engine .
 set +x   # do not echo the next command: it contains the admin token
 docker run -d --name node --restart unless-stopped -p {port}:{port} -v codeastra-data:/data \\
   -e NODE_ID={node} -e PORT={port} -e PEERS="{peers}" -e MODE=crdt -e DB_PATH=/data/{node}.db \\
-  -e ADMIN_TOKEN="{token}" {mongo_flag}codeastra-engine
+  -e ADMIN_TOKEN="{token}" -e CLUSTER_NAME=cloud {mongo_flag}codeastra-engine
 set -x
 sleep 15
 echo "DIAG docker ps:"; docker ps -a
@@ -168,6 +168,7 @@ docker build -q -f engine/Dockerfile -t codeastra-engine .
 ENVFILE=$(mktemp)
 docker inspect node --format '{{range .Config.Env}}{{println .}}{{end}}' \
   | grep -E '^(NODE_ID|PORT|PEERS|MODE|DB_PATH|ADMIN_TOKEN)=' > "$ENVFILE"
+echo "CLUSTER_NAME=cloud" >> "$ENVFILE"
 MONGO='__MONGODB_URI__'
 if [ -n "$MONGO" ]; then echo "MONGODB_URI=$MONGO" >> "$ENVFILE"; fi
 PORT=$(grep '^PORT=' "$ENVFILE" | cut -d= -f2)

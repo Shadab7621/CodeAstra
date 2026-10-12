@@ -38,7 +38,7 @@ class NodeState:
         self.blocked: set[str] = set()  # peer node ids we refuse to talk to
         self.lock = threading.RLock()   # guards reset against incoming events
         self._view = None
-        self.activity = ActivityLog(config.node_id, config.mongo_uri)
+        self.activity = ActivityLog(config.node_id, config.mongo_uri, cluster=config.cluster)
         self.sync = SyncManager(self, post)
         self._logged_conflicts = {c["conflict_id"] for c in self.view()[1]}
         self.activity.record("startup", f"{NODE_NAMES.get(config.node_id, config.node_id)} node "

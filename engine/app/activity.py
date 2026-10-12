@@ -23,9 +23,10 @@ LEVELS = ("info", "warn", "bad")
 
 
 class ActivityLog:
-    def __init__(self, node_id: str, uri: str = "", collection=None):
+    def __init__(self, node_id: str, uri: str = "", collection=None, cluster: str = "local"):
         """`collection` lets tests supply a stand-in for the Atlas collection."""
         self.node_id = node_id
+        self.cluster = cluster  # keeps laptop and cloud runs apart in one shared Atlas database
         self._buffer: deque = deque(maxlen=BUFFER_SIZE)
         self._queue: queue.Queue = queue.Queue()
         self._lock = threading.Lock()
@@ -62,6 +63,7 @@ class ActivityLog:
             entry = {
                 "id": uuid.uuid4().hex,
                 "region": self.node_id,
+                "cluster": self.cluster,
                 "seq": self._seq,
                 "t": now,
                 "ts": datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="milliseconds"),
@@ -149,7 +151,7 @@ class ActivityLog:
         limit = max(1, min(limit, 500))
         if self._collection is not None:
             try:
-                query = {"region": region}
+                query = {"region": region, "cluster": self.cluster}
                 if kind:
                     query["kind"] = kind
                 rows = self._collection.find(query, {"at": 0}).sort("t", -1).limit(limit)
