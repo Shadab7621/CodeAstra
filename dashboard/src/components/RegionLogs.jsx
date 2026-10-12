@@ -69,6 +69,7 @@ const ClockIcon = () => (
   </svg>
 );
 
+
 const GlobeIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -285,8 +286,6 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
                 <span className="rl-metric-val">{lastUpdatedText}</span>
               </div>
             </div>
-
-            <div className="rl-vdiv" aria-hidden="true" />
           </div>
 
           <div className="rl-search-box">
