@@ -7,6 +7,7 @@
     python infra/aws_cluster.py check             create a report, and verify the token works
     python infra/aws_cluster.py logs <node>       boot log of a node (setup progress, self-check)
     python infra/aws_cluster.py token             print the admin token for the dashboard
+    python infra/aws_cluster.py remove <node>     delete one node only (e.g. when it moves to Azure)
     python infra/aws_cluster.py down              remove everything tagged project=codeastra
 
 Safe by design:
@@ -301,6 +302,23 @@ def logs(node):
     print("\n".join(keep[-60:]) or "(no output yet, the server is still booting)")
 
 
+def remove(node):
+    """Delete one node's instance and address, leaving the others running."""
+    region, _ = NODES[node]
+    client = ec2(region)
+    instance = find_instance(client, node)
+    if instance:
+        client.terminate_instances(InstanceIds=[instance["InstanceId"]])
+        client.get_waiter("instance_terminated").wait(InstanceIds=[instance["InstanceId"]])
+        print(f"{node}: terminated {instance['InstanceId']}")
+    eip = find_eip(client, node)
+    if eip:
+        client.release_address(AllocationId=eip["AllocationId"])
+        print(f"{node}: released {eip['PublicIp']}")
+    if not instance and not eip:
+        print(f"{node}: nothing to remove")
+
+
 def down():
     for n, (region, _) in NODES.items():
         try:
@@ -354,6 +372,8 @@ def main():
         print(admin_token())
     elif cmd == "logs" and len(args) == 1 and args[0] in NODES:
         logs(args[0])
+    elif cmd == "remove" and len(args) == 1 and args[0] in NODES:
+        remove(args[0])
     elif cmd == "down":
         down()
     else:
