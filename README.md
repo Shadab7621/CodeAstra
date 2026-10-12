@@ -52,6 +52,26 @@ The token (`infra\.admin_token`) is created on first deploy and is git-ignored. 
 `/admin/*`, `/sync` and conflict resolution; creating and reading reports stays open.
 Three small instances cost about three cents an hour, so run `down` when you are finished.
 
+## Dashboard
+
+A React app with a landing page and a light and dark theme. The built files are committed in
+`dashboard/dist`, so no Node.js is needed to show it:
+
+```powershell
+python infra\run_cluster.py --fresh --baseline --fast         # the local clusters
+python -m http.server 4173 --directory dashboard\dist         # serve the dashboard
+# open http://127.0.0.1:4173
+```
+
+To change it: `cd dashboard`, `npm install`, `npm run dev` (hot reload), then `npm run build`.
+
+- **Engine / Baseline / Compare** tabs, and a **Local / Cloud** switch.
+- Cut and restore links, simulate a crash or a fast clock, create and edit reports, decide conflicts,
+  verify the hash chains, and run the side-by-side partition scenario.
+- **Settings** holds the cloud addresses and the admin token (token is kept for the browser session only).
+- Handy URL options: `#compare` opens a view directly, `?theme=dark` forces a theme,
+  `?motion=off` skips animations, `?autorun=1` (with `#compare`) starts the scenario.
+
 ## Benchmark: engine vs last-writer-wins
 
 ```powershell

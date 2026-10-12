@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-10-12T12:52:56+00:00",
+  "runs": 100,
+  "seed": 11,
+  "elapsed_s": 189,
+  "setup": "local 3-node clusters, 100 ms sync, one laptop",
+  "systems": {
+    "ours": {
+      "trials": 100,
+      "converged_pct": 100.0,
+      "silent_overwrites_pct": 0.0,
+      "acked_writes_lost_pct": 0.0,
+      "stale_wins": 0,
+      "trials_with_silent_loss": 0,
+      "convergence_ms_p50": 18,
+      "convergence_ms_p95": 138,
+      "intents_checked": 199
+    },
+    "lww_baseline": {
+      "trials": 100,
+      "converged_pct": 100.0,
+      "silent_overwrites_pct": 42.2,
+      "acked_writes_lost_pct": 24.5,
+      "stale_wins": 20,
+      "trials_with_silent_loss": 91,
+      "convergence_ms_p50": 8,
+      "convergence_ms_p95": 119,
+      "intents_checked": 199
+    }
+  },
+  "scenarios": [
+    {
+      "name": "partition_edit",
+      "runs": 20,
+      "ours_pass": 20,
+      "lww_pass": 0
+    },
+    {
+      "name": "pairwise_partition",
+      "runs": 20,
+      "ours_pass": 20,
+      "lww_pass": 0
+    },
+    {
+      "name": "flapping_link",
+      "runs": 20,
+      "ours_pass": 20,
+      "lww_pass": 5
+    },
+    {
+      "name": "crash_recover",
+      "runs": 20,
+      "ours_pass": 20,
+      "lww_pass": 4
+    },
+    {
+      "name": "clock_skew",
+      "runs": 20,
+      "ours_pass": 20,
+      "lww_pass": 0
+    }
+  ]
+}

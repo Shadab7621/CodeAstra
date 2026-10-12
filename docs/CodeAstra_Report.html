@@ -12,12 +12,14 @@
   body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10pt;
          line-height: 1.42; margin: 0; }
   h1 { font-size: 20pt; margin: 0 0 6pt; color: var(--ink); }
-  h2 { font-size: 15pt; margin: 20pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid var(--blue);
+  h2 { font-size: 15pt; margin: 14pt 0 5pt; padding-bottom: 3pt; border-bottom: 2px solid var(--blue);
        color: var(--ink); break-after: avoid; }
   h3 { font-size: 11.5pt; margin: 12pt 0 3pt; color: var(--blue); break-after: avoid; }
   p { margin: 0 0 7pt; }
   ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
-  li { margin-bottom: 2pt; }
+  li { margin-bottom: 1.5pt; }
+  ul.small { font-size: 8.4pt; line-height: 1.3; }
+  ul.small li { margin-bottom: 0; }
   .muted { color: var(--muted); }
   .small { font-size: 9pt; }
   .page-break { break-before: page; }
@@ -84,7 +86,7 @@
   </div>
   <div class="meta">
     Project report for judges and mentors &middot; 12 October 2026<br>
-    Status: engine complete and verified locally and on a three-region AWS deployment; baseline benchmark and dashboard in progress
+    Status: engine complete and verified locally and on a three-region AWS deployment; benchmark and dashboard complete
   </div>
 </section>
 
@@ -114,7 +116,7 @@ wrong clocks, and converge to identical state. It runs in Docker and is deployed
 (Mumbai, Hyderabad, Singapore), where the full partition, heal and crash-recovery scenario passes 12 of 12
 checks, and it has also been run across two providers (AWS Mumbai and Hyderabad plus Azure Singapore) with the same
 result. The comparison benchmark against a last-writer-wins baseline is complete (section 9). The operator
-dashboard is the remaining work.</p>
+dashboard is built, and every component of the brief now has a working implementation.</p>
 </section>
 
 <!-- ===================== 2. PROBLEM ===================== -->
@@ -130,7 +132,7 @@ accepting reports while disconnected from its primary service and later reconcil
   <tr><td>Partition simulation</td><td>Per-link block, node pause (crash), clock skew and reset through an admin API</td></tr>
   <tr><td>Defined conflict-resolution policy</td><td>Per-field merge rules plus a conflict ledger and operator decisions</td></tr>
   <tr><td>Consistency-status API</td><td><code>/status</code>, per-report durability, <code>/state-hash</code></td></tr>
-  <tr><td>Operational dashboard</td><td>Web dashboard (in progress, built by a teammate)</td></tr>
+  <tr><td>Operational dashboard</td><td>React dashboard with a landing page: regions, fault controls, reports, conflict ledger, integrity check</td></tr>
   <tr><td>"Explicitly choose and defend your consistency model"</td><td>Section 4</td></tr>
 </table>
 </section>
@@ -321,7 +323,7 @@ verification that general-purpose tools do not provide.</p>
   <tr><td>Packaging</td><td>Docker and Compose</td><td>One command for teammates; same image locally and in the cloud</td></tr>
   <tr><td>Cloud</td><td>AWS EC2 (Mumbai, Hyderabad) and an Azure VM (Singapore), deployed</td><td>Real geographic and provider separation. One small instance per node, created and removed by a script per provider, everything tagged for clean teardown</td></tr>
   <tr><td>Access control</td><td>Shared-secret header on admin, sync and operator endpoints</td><td>Lets the nodes be reachable from any network while fault injection and operator decisions stay protected; reporting and reading stay open</td></tr>
-  <tr><td>Dashboard</td><td>Web single-page app</td><td>Shows regions, reports, conflicts and fault controls</td></tr>
+  <tr><td>Dashboard</td><td>React, Vite, Framer Motion</td><td>Static build that runs offline; light and dark themes; shows regions, fault controls, reports, conflict ledger and integrity check</td></tr>
 </table>
 <p class="small muted">We deliberately did not implement Raft or Paxos: this problem calls for an
 available design, and consensus would reintroduce the exact failure we are avoiding.</p>
@@ -346,7 +348,7 @@ available design, and consensus would reintroduce the exact failure we are avoid
   <tr><td>Tamper-evident hash-chained log and audit endpoints</td><td class="ok">Done</td><td>10 tests; live tamper demo detects an edit made behind the app</td></tr>
   <tr><td>Mixed-cloud deployment: AWS (Mumbai, Hyderabad) + Azure (Singapore)</td><td class="ok">Done</td><td>12 of 12 smoke-test checks across both providers; identical hash-chain heads on all three nodes</td></tr>
   <tr><td>Google Cloud deployment script</td><td class="warn">Prepared</td><td>Written and syntax-checked; not run (the trial billing account had closed)</td></tr>
-  <tr><td>Operator dashboard</td><td class="warn">In progress</td><td>Assigned to a teammate; built against the API contract</td></tr>
+  <tr><td>Operator dashboard (React, light and dark theme)</td><td class="ok">Done</td><td>Regions, reports, conflict ledger, hash-chain check, and a side-by-side scenario against the baseline; exercised in a real browser against both clusters</td></tr>
 </table>
 
 <h3>Measured results</h3>
@@ -431,7 +433,7 @@ comparison is like for like.</p>
 <table>
   <tr><th style="width:5%">#</th><th style="width:38%">Task</th><th style="width:12%">Owner</th><th>Done when</th></tr>
   <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td class="ok">Done: smoke test passes against containers</td></tr>
-  <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>All</td><td>Dashboard drives the real cluster</td></tr>
+  <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>Engine / infra</td><td class="ok">Done: dashboard drives the real clusters</td></tr>
   <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Engine / infra</td><td class="ok">Done: results file and charts produced</td></tr>
   <tr><td>4</td><td>Deploy to AWS regions and a second cloud (Azure)</td><td>Engine / infra</td><td class="ok">Done: partition and heal verified across both providers</td></tr>
   <tr><td>5</td><td>Rehearse the demo twice, with a laptop-only fallback</td><td>All</td><td>Runs without venue Wi-Fi</td></tr>
@@ -498,7 +500,7 @@ comparison is like for like.</p>
 </ul>
 <div class="footer-note">
   Technical claims about other products marked "general knowledge" were not re-verified during our research.
-  Performance figures come from single runs measured from a laptop, on a local cluster and on three AWS regions as labelled.
+  Performance figures come from single runs measured from a laptop, on a local cluster and on cloud clusters (AWS, and AWS plus Azure) as labelled.
 </div>
 </section>
 
