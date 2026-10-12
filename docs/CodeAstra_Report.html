@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeAstra 2.0 - Project Report</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  @page wide { size: A4 landscape; margin: 10mm; }
+  :root { --ink:#0f172a; --muted:#475569; --line:#cbd5e1; --blue:#1d4ed8; --green:#15803d;
+          --amber:#b45309; --red:#b91c1c; --soft:#f1f5f9; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 10.5pt;
+         line-height: 1.5; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 6pt; color: var(--ink); }
+  h2 { font-size: 15pt; margin: 20pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid var(--blue);
+       color: var(--ink); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 12pt 0 3pt; color: var(--blue); break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+  li { margin-bottom: 2pt; }
+  .muted { color: var(--muted); }
+  .small { font-size: 9pt; }
+  .page-break { break-before: page; }
+  .avoid { break-inside: avoid; }
+
+  /* cover */
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .tag { color: var(--blue); font-weight: 700; letter-spacing: 1.5pt; font-size: 11pt; }
+  .cover h1 { font-size: 30pt; line-height: 1.15; margin: 10pt 0 12pt; }
+  .cover .sub { font-size: 14pt; color: var(--muted); max-width: 150mm; }
+  .cover .meta { margin-top: 34pt; border-top: 2px solid var(--line); padding-top: 10pt;
+                 color: var(--muted); font-size: 10pt; }
+  .stats { display: flex; gap: 10pt; margin: 26pt 0 0; }
+  .stat { flex: 1; border: 1px solid var(--line); border-radius: 8pt; padding: 9pt 10pt; background: var(--soft); }
+  .stat b { display: block; font-size: 18pt; color: var(--blue); }
+  .stat span { font-size: 9pt; color: var(--muted); }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.5pt; }
+  th { background: #e2e8f0; text-align: left; padding: 5pt 6pt; border: 1px solid var(--line); }
+  td { padding: 5pt 6pt; border: 1px solid var(--line); vertical-align: top; }
+  tr { break-inside: avoid; }
+  .ok { color: var(--green); font-weight: 700; }
+  .warn { color: var(--amber); font-weight: 700; }
+  .bad { color: var(--red); font-weight: 700; }
+
+  .callout { border-left: 4px solid var(--blue); background: #eff6ff; padding: 7pt 10pt; margin: 8pt 0 10pt;
+             border-radius: 0 6pt 6pt 0; break-inside: avoid; }
+  .callout.green { border-color: var(--green); background: #f0fdf4; }
+  .callout.amber { border-color: var(--amber); background: #fffbeb; }
+  .callout.red { border-color: var(--red); background: #fef2f2; }
+
+  /* flow diagrams made from boxes */
+  .flow { display: flex; align-items: stretch; gap: 0; margin: 8pt 0 12pt; break-inside: avoid; }
+  .step { flex: 1; border: 1.5px solid #93c5fd; background: #fff; border-radius: 7pt; padding: 6pt 6pt;
+          text-align: center; font-size: 9pt; }
+  .step b { display: block; font-size: 9.5pt; margin-bottom: 2pt; }
+  .step.g { background: #dcfce7; border-color: #16a34a; }
+  .step.a { background: #fef3c7; border-color: #d97706; }
+  .arrow { display: flex; align-items: center; padding: 0 3pt; color: var(--muted); font-weight: 700; }
+
+  .wide { page: wide; }
+  .wide img { width: 100%; display: block; }
+  .wide p { margin: 4pt 0 0; font-size: 9pt; color: var(--muted); }
+  code { font-family: Consolas, monospace; font-size: 9pt; background: var(--soft); padding: 0 3pt; border-radius: 3pt; }
+  .two { display: flex; gap: 12pt; }
+  .two > div { flex: 1; }
+  .footer-note { margin-top: 14pt; font-size: 8.5pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 6pt; }
+</style>
+</head>
+<body>
+
+<!-- ===================== COVER ===================== -->
+<section class="cover">
+  <div class="tag">CODEASTRA 2.0 &middot; CLOUD COMPUTING &amp; DISTRIBUTED SYSTEMS</div>
+  <h1>Geo-Distributed Disaster Data Replication with Graceful Degradation</h1>
+  <div class="sub">A multi-region report service that keeps accepting data when the network breaks,
+    merges safely when it returns, and tells operators exactly what is at risk.</div>
+  <div class="stats">
+    <div class="stat"><b>3</b><span>regional replicas (Mumbai, Hyderabad, Singapore)</span></div>
+    <div class="stat"><b>54</b><span>automated tests passing</span></div>
+    <div class="stat"><b>0</b><span>acknowledged writes lost in fault tests</span></div>
+    <div class="stat"><b>~0.3 s</b><span>to converge after healing (local cluster)</span></div>
+  </div>
+  <div class="meta">
+    Project report for judges and mentors &middot; 12 October 2026<br>
+    Status: engine complete and tested locally; baseline, dashboard and AWS deployment in progress
+  </div>
+</section>
+
+<!-- ===================== 1. SUMMARY ===================== -->
+<section class="page-break">
+<h1>1. Executive summary</h1>
+<p>During a disaster, the region that most needs to record reports is often the one that has lost its
+connection to everyone else. Most cloud databases force a bad choice: <b>refuse writes</b> until the
+network returns, or <b>accept writes and silently overwrite</b> whichever edit has the older timestamp.</p>
+<p>We are building a replicated report service that takes a third path:</p>
+<ul>
+  <li><b>Always accept</b> a report locally, instantly, even when cut off.</li>
+  <li><b>Never silently lose</b> a write. Conflicts are kept in a visible ledger and resolved by clear rules or a human operator.</li>
+  <li><b>Tell the truth</b> about safety: every report is marked <i>local</i>, <i>replicated</i> or <i>confirmed</i>.</li>
+  <li><b>Prove it</b> with an automated fault-injection tester and a side-by-side comparison against a last-writer-wins baseline.</li>
+</ul>
+<div class="callout green">
+  <b>One-sentence pitch.</b> Cloud providers move data between regions; we make that replication
+  trustworthy and understandable during a disaster, by keeping every write, exposing every conflict,
+  and showing what is still at risk.
+</div>
+<h3>Where we are today</h3>
+<p>The replication engine is built and verified: three nodes replicate, survive partitions, crashes and
+wrong clocks, and converge to identical state. The comparison baseline, operator dashboard and the
+three-region AWS deployment are the remaining work.</p>
+</section>
+
+<!-- ===================== 2. PROBLEM ===================== -->
+<section>
+<h2>2. The problem we were given</h2>
+<p><b>Problem statement (Cloud Computing &amp; Distributed Systems, #2):</b> critical systems cannot assume a
+single region or network path is always available. During a disaster the system may need to keep
+accepting reports while disconnected from its primary service and later reconcile conflicting updates.</p>
+<table>
+  <tr><th style="width:38%">What the brief asks for</th><th>Our response</th></tr>
+  <tr><td>Two or more replicas, local writes, persistence</td><td>Three replicas, each its own process; every node writes to its own SQLite event log first</td></tr>
+  <tr><td>Replication protocol and recovery</td><td>Pull-based version-vector sync every 0.5 s, relaying through third nodes, catch-up after a heal or crash</td></tr>
+  <tr><td>Partition simulation</td><td>Per-link block, node pause (crash), clock skew and reset through an admin API</td></tr>
+  <tr><td>Defined conflict-resolution policy</td><td>Per-field merge rules plus a conflict ledger and operator decisions</td></tr>
+  <tr><td>Consistency-status API</td><td><code>/status</code>, per-report durability, <code>/state-hash</code></td></tr>
+  <tr><td>Operational dashboard</td><td>Web dashboard (in progress, built by a teammate)</td></tr>
+  <tr><td>"Explicitly choose and defend your consistency model"</td><td>Section 4</td></tr>
+</table>
+</section>
+
+<!-- ===================== 3. WORKFLOW (landscape) ===================== -->
+<section class="wide page-break">
+  <img src="workflow.svg" alt="Workflow diagram">
+  <p>Figure 1. End-to-end workflow: normal operation, disaster partition, recovery and merge.</p>
+</section>
+
+<!-- ===================== 4. HOW IT WORKS ===================== -->
+<section class="page-break">
+<h2>3. How it works</h2>
+<h3>3.1 Inside one node</h3>
+<div class="flow">
+  <div class="step"><b>HTTP API</b>create, edit, read</div><div class="arrow">&rarr;</div>
+  <div class="step"><b>Event log</b>append-only SQLite</div><div class="arrow">&rarr;</div>
+  <div class="step"><b>Merge engine</b>events &rarr; report</div><div class="arrow">&rarr;</div>
+  <div class="step a"><b>Conflict ledger</b>nothing dropped</div><div class="arrow">&rarr;</div>
+  <div class="step g"><b>Status</b>durability, hash</div>
+</div>
+<ul>
+  <li><b>Events, not rows.</b> Every create or edit is stored as an immutable event. A report's current
+      state is <i>calculated</i> from its events. Nothing is edited or deleted, so nothing can be silently overwritten.</li>
+  <li><b>Hybrid logical clocks.</b> Each event carries a clock value that never goes backwards and is
+      advanced by events received from other nodes, so a node with a wrong wall clock cannot corrupt ordering.</li>
+  <li><b>Version vectors.</b> Each event records what its author had already seen. This tells "one edit
+      after another" apart from "two edits at the same time", which timestamps alone cannot do.</li>
+  <li><b>Pure merge function.</b> The merged result depends only on the <i>set</i> of events, not the order
+      they arrived in, so any two nodes holding the same events compute the same state.</li>
+</ul>
+
+<h3>3.2 Replication</h3>
+<div class="flow">
+  <div class="step"><b>Ask</b>"here is what I have"</div><div class="arrow">&rarr;</div>
+  <div class="step"><b>Receive</b>only what is missing</div><div class="arrow">&rarr;</div>
+  <div class="step"><b>Apply in order</b>per origin, no gaps</div><div class="arrow">&rarr;</div>
+  <div class="step"><b>Record</b>what the peer holds</div>
+</div>
+<ul>
+  <li>Each node pulls from every peer every 0.5 s. A dead peer never delays the others (one thread per peer).</li>
+  <li>Applying an event twice does nothing; events arriving out of order or with gaps are skipped and refetched.</li>
+  <li>Nodes <b>relay</b> for each other: if Mumbai cannot reach Hyderabad but both reach Singapore, they still converge.</li>
+  <li>Long outages catch up in batches of 500 events, always a gap-free prefix.</li>
+  <li><b>Reset epochs</b> stop a freshly wiped node from receiving old data back from a peer not yet wiped.</li>
+</ul>
+
+<h3>3.3 Merge rules (the consistency policy)</h3>
+<table>
+  <tr><th style="width:17%">Field</th><th style="width:33%">Two edits at the same time</th><th>Why this rule</th></tr>
+  <tr><td>Severity (1-5)</td><td>Highest value wins; lowering needs an operator</td><td>In a disaster, under-reporting is more dangerous than over-reporting</td></tr>
+  <tr><td>Status</td><td>Most advanced wins (open &lt; acknowledged &lt; in progress &lt; resolved); reopening needs an operator</td><td>Work already done should not be silently undone by a stale update</td></tr>
+  <tr><td>Location</td><td>Latest wins; if the two are more than 500 m apart, flag for an operator</td><td>Small corrections are safe; large jumps need a human</td></tr>
+  <tr><td>Description</td><td>Keep both versions and ask an operator</td><td>Free text cannot be merged safely by a rule</td></tr>
+  <tr><td>Type, reporter</td><td>Fixed at creation</td><td>Identity of a report must not drift</td></tr>
+</table>
+<p>If a later edit was written by someone who had already seen both versions, it simply supersedes them.
+Every concurrent disagreement stays in the ledger as history, whether a rule or a person resolved it.</p>
+
+<h3>3.4 Durability: telling the truth about risk</h3>
+<table>
+  <tr><th style="width:18%">Status</th><th>Meaning</th></tr>
+  <tr><td class="warn">local</td><td>Only this node holds the report. If this node is lost, the report is lost.</td></tr>
+  <tr><td style="color:var(--blue);font-weight:700">replicated</td><td>At least one other node is known to hold every event of the report.</td></tr>
+  <tr><td class="ok">confirmed</td><td>Every other node is known to hold it.</td></tr>
+</table>
+
+<h3>3.5 Verification built into the system</h3>
+<p>Each node exposes a hash of its merged state and the list of event ids it holds. Equal hashes mean two
+nodes hold the same events and merged them identically. An automated tester uses these to check, after
+every fault run, that nothing was lost and everything converged.</p>
+</section>
+
+<!-- ===================== 5. CONSISTENCY ===================== -->
+<section>
+<h2>4. Consistency model and why we chose it</h2>
+<div class="two">
+<div>
+<h3>Our choice: available, eventually consistent</h3>
+<ul>
+  <li>Every node always accepts writes (availability under partition).</li>
+  <li>All nodes converge to the same state once they exchange events (<b>strong eventual consistency</b>).</li>
+  <li>No acknowledged write is ever discarded; disagreements are surfaced, not hidden.</li>
+</ul>
+</div>
+<div>
+<h3>Why not strong consistency?</h3>
+<ul>
+  <li>A strongly consistent system must refuse writes on the side without a majority.</li>
+  <li>In a disaster that is exactly the side that needs to keep recording reports.</li>
+  <li>Reports are mostly new facts that accumulate, so merging is practical and safe.</li>
+</ul>
+</div>
+</div>
+<div class="callout amber">
+  <b>The honest limit.</b> A report saved in a region that is destroyed before it syncs is lost. No design
+  removes this. We shrink the window to about half a second and show operators which reports are still
+  <i>local</i>, so the risk is visible instead of hidden.
+</div>
+</section>
+
+<!-- ===================== 6. EXISTING METHODS ===================== -->
+<section class="page-break">
+<h2>5. Existing approaches and where they fall short</h2>
+<p>Evidence level: <span class="ok">verified</span> means confirmed in documentation or papers during our
+research; <span class="warn">general knowledge</span> means widely known but not re-verified by us.</p>
+<table>
+  <tr><th style="width:19%">Approach</th><th style="width:31%">What it does</th><th style="width:34%">Where it falls short for this problem</th><th>Evidence</th></tr>
+  <tr><td><b>DynamoDB Global Tables, eventual mode</b></td>
+      <td>An isolated region keeps accepting writes and catches up when healthy</td>
+      <td>Conflicts resolved by <b>last writer wins</b>, so one edit is silently discarded; depends on clocks</td>
+      <td class="ok">verified</td></tr>
+  <tr><td><b>DynamoDB Global Tables, strong mode</b></td>
+      <td>A write is confirmed only after another region has it</td>
+      <td>Exactly 3 regions (or 2 plus a witness), no transactions, higher write latency; an isolated region cannot get confirmation (our inference)</td>
+      <td class="ok">verified (partition behaviour inferred)</td></tr>
+  <tr><td><b>AWS Amplify DataStore / AppSync</b></td>
+      <td>Offline-first client sync with Auto Merge, optimistic concurrency or a custom Lambda</td>
+      <td>Auto Merge prefers the server value for single fields; custom logic is left to the developer; syncs devices to one cloud endpoint; Gen 1 reaches end of life on 1 May 2027</td>
+      <td class="ok">verified</td></tr>
+  <tr><td><b>Consensus databases (Spanner, CockroachDB, etcd)</b></td>
+      <td>Strong consistency through majority agreement</td>
+      <td>The minority side of a partition cannot commit writes</td>
+      <td class="warn">general knowledge</td></tr>
+  <tr><td><b>Cassandra, Riak, CouchDB</b></td>
+      <td>Always-writable replicas</td>
+      <td>Typically timestamp-based or revision-based winners that can hide the losing version</td>
+      <td class="warn">general knowledge</td></tr>
+  <tr><td><b>CRDT libraries (e.g. Automerge)</b></td>
+      <td>Replicas converge automatically, peer to peer, with no central server</td>
+      <td>Built for collaborative documents; no domain rules (such as severity can only escalate), no operator workflow, no durability status</td>
+      <td class="ok">verified (domain gap is our assessment)</td></tr>
+  <tr><td><b>Real-world track record (Jepsen)</b></td>
+      <td>Independent fault-injection testing of databases</td>
+      <td>Found split-brain, lost acknowledged writes and lost updates in production systems, so "it replicates" is not proof</td>
+      <td class="ok">verified</td></tr>
+</table>
+<div class="callout">
+  <b>The gap we target:</b> AWS and others move the data. They do not decide what is true when two
+  regions disagree, do not tell the operator which reports are at risk, and do not ship their own proof
+  that nothing was lost.
+</div>
+</section>
+
+<!-- ===================== 7. INNOVATION ===================== -->
+<section>
+<h2>6. What is different and innovative</h2>
+<p>We want to be clear about what is new. Event logs, hybrid clocks and version vectors are established
+techniques. Our contribution is combining them into a disaster-operations service with behaviour and
+verification that general-purpose tools do not provide.</p>
+<table>
+  <tr><th style="width:26%">Idea</th><th>What it gives the user</th></tr>
+  <tr><td><b>Domain-aware merge rules</b></td><td>Safe defaults for disaster reports: severity escalates, status advances, location jumps are flagged. Not a blanket "latest wins".</td></tr>
+  <tr><td><b>Visible conflict ledger</b></td><td>Every concurrent disagreement is stored with both versions and who decided. Nothing disappears silently.</td></tr>
+  <tr><td><b>Per-report durability</b></td><td>Operators see which individual reports are still at risk, not just a table-level latency number.</td></tr>
+  <tr><td><b>Causality, not clocks</b></td><td>Correct behaviour even when a node's clock is an hour wrong. We test this explicitly.</td></tr>
+  <tr><td><b>Built-in proof</b></td><td>A chaos tester runs random partitions, crashes and clock skew, then asserts convergence and zero lost writes, and compares against a last-writer-wins baseline.</td></tr>
+  <tr><td><b>Safe reset across nodes</b></td><td>Epoch numbers prevent old data reappearing after a cluster reset, a real operational trap.</td></tr>
+</table>
+</section>
+
+<!-- ===================== 8. TECH ===================== -->
+<section class="avoid">
+<h2>7. Technology stack</h2>
+<table>
+  <tr><th style="width:22%">Layer</th><th style="width:28%">Choice</th><th>Reason</th></tr>
+  <tr><td>Language</td><td>Python 3.13</td><td>Fast to build and test; strong ecosystem for fault-injection scripts</td></tr>
+  <tr><td>API server</td><td>FastAPI + Uvicorn</td><td>Typed requests, automatic interactive docs</td></tr>
+  <tr><td>Storage</td><td>SQLite (one file per node)</td><td>Durable across crashes, zero setup; fits the simulated-region scope</td></tr>
+  <tr><td>Node-to-node calls</td><td>httpx</td><td>Simple HTTP, easy to block and inspect in tests</td></tr>
+  <tr><td>Tests</td><td>pytest</td><td>Unit, multi-node and random-fault tests</td></tr>
+  <tr><td>Packaging</td><td>Docker and Compose</td><td>One command for teammates; same image locally and in the cloud</td></tr>
+  <tr><td>Cloud</td><td>AWS EC2 in three regions</td><td>Real geographic separation for the final demo</td></tr>
+  <tr><td>Dashboard</td><td>Web single-page app</td><td>Shows regions, reports, conflicts and fault controls</td></tr>
+</table>
+<p class="small muted">We deliberately did not implement Raft or Paxos: this problem calls for an
+available design, and consensus would reintroduce the exact failure we are avoiding.</p>
+</section>
+
+<!-- ===================== 9. PROGRESS ===================== -->
+<section class="page-break">
+<h2>8. Progress so far</h2>
+<table>
+  <tr><th style="width:42%">Component</th><th style="width:16%">Status</th><th>Evidence</th></tr>
+  <tr><td>Event log, logical clock, create and edit API</td><td class="ok">Done</td><td>Unit and API tests</td></tr>
+  <tr><td>Merge engine and per-field rules</td><td class="ok">Done</td><td>One test per rule, plus 40 random histories</td></tr>
+  <tr><td>Conflict ledger and operator resolve</td><td class="ok">Done</td><td>API and replication tests</td></tr>
+  <tr><td>Sync between nodes, relaying, batching</td><td class="ok">Done</td><td>Multi-node tests</td></tr>
+  <tr><td>Durability states, peer status, state hash</td><td class="ok">Done</td><td>Multi-node tests</td></tr>
+  <tr><td>Fault injection (block, pause, clock, reset)</td><td class="ok">Done</td><td>Admin API and tests</td></tr>
+  <tr><td>Local three-node cluster and smoke test</td><td class="ok">Done</td><td>12 of 12 checks over real HTTP</td></tr>
+  <tr><td>Docker packaging</td><td class="warn">Next</td><td>Docker Desktop now working</td></tr>
+  <tr><td>Last-writer-wins baseline and chaos benchmark</td><td class="warn">In progress</td><td>Assigned to a teammate; results file format agreed</td></tr>
+  <tr><td>Operator dashboard</td><td class="warn">In progress</td><td>Assigned to a teammate; built against the API contract</td></tr>
+  <tr><td>AWS three-region deployment</td><td class="warn">Planned</td><td>Needs EC2 permission and the Hyderabad region enabled</td></tr>
+</table>
+
+<h3>Measured results (local three-node cluster)</h3>
+<table>
+  <tr><th>Check</th><th>Result</th></tr>
+  <tr><td>Automated tests</td><td>54 passed</td></tr>
+  <tr><td>Random fault runs (writes, partitions, crashes, clock skew)</td><td>25 seeds: always converged, no acknowledged write lost, identical ledgers</td></tr>
+  <tr><td>Report replicated to another region</td><td>about 0.3 to 0.4 s</td></tr>
+  <tr><td>Report reaches "confirmed" everywhere</td><td>about 0.5 s</td></tr>
+  <tr><td>Convergence after a partition heals</td><td>about 0.2 to 0.3 s</td></tr>
+</table>
+<p class="small muted">These figures come from one laptop, not from regions on separate networks. We will report
+cloud numbers separately after the AWS deployment and will not present local timings as cloud performance.</p>
+</section>
+
+<!-- ===================== 10. EVALUATION ===================== -->
+<section class="page-break">
+<h2>9. How we will prove it to the judges</h2>
+<table>
+  <tr><th style="width:30%">Method</th><th>What it shows</th></tr>
+  <tr><td><b>1. Live partition demo</b></td><td>Cut a region, edit the same report on both sides, restore, show the merge and ledger.</td></tr>
+  <tr><td><b>2. Side-by-side baseline</b></td><td>The same scenario on a last-writer-wins cluster: an edit disappears there, but not in ours.</td></tr>
+  <tr><td><b>3. Automated chaos benchmark</b></td><td>Hundreds of seeded random runs with a pass/fail table and charts.</td></tr>
+  <tr><td><b>4. Real multi-region deployment</b></td><td>Three AWS regions, with the partition triggered live.</td></tr>
+  <tr><td><b>5. Written model defense</b></td><td>This report, section 4: why availability, what is lost, and what is not.</td></tr>
+</table>
+<h3>Invariants checked after every fault run</h3>
+<table>
+  <tr><th style="width:8%">ID</th><th style="width:44%">Invariant</th><th>How it is checked</th></tr>
+  <tr><td>I1</td><td>All nodes converge to the same state</td><td>Equal state hashes</td></tr>
+  <tr><td>I2</td><td>No acknowledged write is lost</td><td>Every acknowledged event id exists on every node</td></tr>
+  <tr><td>I3</td><td>No silent overwrite</td><td>Each concurrent disagreement is covered by a rule or a ledger entry</td></tr>
+  <tr><td>I4</td><td>Status never moves backwards without an operator</td><td>Compare final status with all writes</td></tr>
+  <tr><td>I5</td><td>Severity never decreases without an operator</td><td>Compare final severity with all writes</td></tr>
+  <tr><td>I6</td><td>Convergence time</td><td>Measured from heal to equal hashes (p50 and p95)</td></tr>
+</table>
+<p>The headline figure we expect to present is the <b>silent-overwrite rate</b>: the percentage of
+concurrent edits that vanish in the baseline versus in our system. This number has not been measured yet, so
+it is not claimed in this report.</p>
+
+<h3>Demo script (3 minutes)</h3>
+<ol>
+  <li>Two regions show the same board. Create a report in Mumbai; it appears in Hyderabad and turns green.</li>
+  <li>Cut the link. The regions panel shows the break.</li>
+  <li>Edit the same report on both sides. Badges show "saved locally, at risk".</li>
+  <li>Restore the link. Banner changes from "out of sync" to "in sync".</li>
+  <li>Open the conflict ledger and show both versions and the policy.</li>
+  <li>Switch to side-by-side and show the baseline losing an edit.</li>
+  <li>Run the automated test and show it pass.</li>
+</ol>
+</section>
+
+<!-- ===================== 11. PLAN ===================== -->
+<section class="page-break">
+<h2>10. Plan from here</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:38%">Task</th><th style="width:12%">Owner</th><th>Done when</th></tr>
+  <tr><td>1</td><td>Docker image and Compose for the three nodes</td><td>Engine / infra</td><td>Smoke test passes against containers</td></tr>
+  <tr><td>2</td><td>Connect baseline and dashboard to the engine</td><td>All</td><td>Dashboard drives the real cluster</td></tr>
+  <tr><td>3</td><td>Run the chaos benchmark on both clusters</td><td>Testing teammate</td><td>Results file and two charts produced</td></tr>
+  <tr><td>4</td><td>Deploy three nodes to AWS regions</td><td>Engine / infra</td><td>Partition triggered live across regions</td></tr>
+  <tr><td>5</td><td>Rehearse the demo twice, with a laptop-only fallback</td><td>All</td><td>Runs without venue Wi-Fi</td></tr>
+  <tr><td>6</td><td>Feature freeze, final report and slides</td><td>All</td><td>Submission ready</td></tr>
+</table>
+<h3>Stretch goals if time allows</h3>
+<ul>
+  <li><b>Duplicate-report detection</b> (same place, time and type), filling the <code>possible_duplicates</code> field that is currently empty.</li>
+  <li><b>Signed node-to-node messages</b>, to show how the cybersecurity convergence from the brief would plug in.</li>
+  <li><b>Live updates</b> to the dashboard through server-sent events instead of polling.</li>
+</ul>
+
+<h2>11. Risks and limitations</h2>
+<table>
+  <tr><th style="width:34%">Item</th><th>Mitigation or honest position</th></tr>
+  <tr><td>Data lost if a region is destroyed before syncing</td><td>Shown as <i>local</i> to operators; sync window about 0.5 s. Cannot be eliminated.</td></tr>
+  <tr><td>Integration of work from several people</td><td>Shared API contract, mock-first development, fixed integration checkpoints.</td></tr>
+  <tr><td>Cloud setup or venue network failure during the demo</td><td>Identical local cluster as a fallback.</td></tr>
+  <tr><td>Cost of running three cloud machines</td><td>Small instances, billing alarm already set, tagged resources and a one-command teardown.</td></tr>
+  <tr><td>Not production hardened</td><td>No authentication between nodes yet; SQLite per node; not load tested. Appropriate for the 24-hour prototype scope.</td></tr>
+  <tr><td>Urgent-first catch-up sync</td><td>Not built: it conflicts with the in-order rule that keeps conflict detection correct. We do not claim it.</td></tr>
+</table>
+</section>
+
+<!-- ===================== 12. QUESTIONS ===================== -->
+<section class="avoid">
+<h2>12. Questions we expect, and our answers</h2>
+<table>
+  <tr><th style="width:36%">Question</th><th>Answer</th></tr>
+  <tr><td>Why not just use DynamoDB Global Tables?</td><td>Its default mode resolves conflicts by latest timestamp, so an edit can vanish silently; its strong mode needs another region to confirm each write, which a cut-off region cannot get. We keep accepting writes and keep every version.</td></tr>
+  <tr><td>What if a region is destroyed?</td><td>Anything not yet synced is lost. We minimise that window, mark such reports as local, and say so openly.</td></tr>
+  <tr><td>Why not trust timestamps?</td><td>Devices in disaster zones often have wrong clocks, so we use causal information from version vectors and logical clocks.</td></tr>
+  <tr><td>Is this just a CRDT library?</td><td>No. We use similar convergence ideas but add disaster-specific rules, an operator ledger, durability status and a built-in verification harness.</td></tr>
+  <tr><td>How do you know it is correct?</td><td>Per-rule tests, random multi-node fault runs with invariants, and a comparison against a baseline.</td></tr>
+  <tr><td>Does it scale?</td><td>Not tested beyond three nodes and small data. The prototype proves the behaviour, not throughput.</td></tr>
+</table>
+</section>
+
+<!-- ===================== SOURCES ===================== -->
+<section>
+<h2>Sources</h2>
+<ul class="small">
+  <li>AWS: DynamoDB Global Tables &mdash; aws.amazon.com/dynamodb/global-tables</li>
+  <li>AWS: Global tables overview (Prescriptive Guidance) &mdash; docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-global-tables/overview.html</li>
+  <li>AWS News Blog: Multi-Region Strong Consistency in DynamoDB global tables</li>
+  <li>AWS: Monitoring global tables (ReplicationLatency metric) &mdash; docs.aws.eu/amazondynamodb/latest/developerguide/globaltables_monitoring.html</li>
+  <li>Amplify docs: DataStore conflict resolution &mdash; docs.amplify.aws/flutter/build-a-backend/more-features/datastore/conflict-resolution/</li>
+  <li>Kleppmann, M. et al.: Automerge, real-time data sync between edge devices (MobiUK 2018)</li>
+  <li>Kleppmann, M.: Local-first software &mdash; martin.kleppmann.com/2021/06/14/emergencity.html</li>
+  <li>Jepsen: NATS 2.12.1 &mdash; jepsen.io/blog/2025-12-08-nats-2.12.1</li>
+  <li>Jepsen: MariaDB Galera Cluster 12.1.2 &mdash; jepsen.io/blog/2026-03-16-mariadb-galera-cluster-12.1.2</li>
+  <li>DZone: Conflict resolution using last-write-wins vs CRDTs</li>
+</ul>
+<div class="footer-note">
+  Technical claims about other products marked "general knowledge" were not re-verified during our research.
+  All performance figures are from a local three-node cluster unless stated otherwise.
+</div>
+</section>
+
+</body>
+</html>
