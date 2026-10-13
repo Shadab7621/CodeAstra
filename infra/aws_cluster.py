@@ -44,7 +44,7 @@ NODES = {  # node id -> (region, port)
     "hyd": ("ap-south-2", 8002),
     "sin": ("ap-southeast-1", 8003),
 }
-USER_DATA_VERSION = "6"  # bump when user_data() changes so `up` replaces old instances
+USER_DATA_VERSION = "7"  # bump when user_data() changes so `up` replaces old instances
 TAGS = [{"Key": "project", "Value": "codeastra"}]
 TOKEN_FILE = Path(__file__).resolve().parent / ".admin_token"   # git-ignored
 session = boto3.Session(profile_name=PROFILE)
