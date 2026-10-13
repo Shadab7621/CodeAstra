@@ -13,7 +13,7 @@ import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'logs', 'convergence'];
+const VIEWS = ['overview', 'infrastructure', 'logs', 'convergence', 'analytics'];
 
 // A hash such as #overview, #infrastructure or #logs opens the console directly.
 function fromHash() {
@@ -23,12 +23,16 @@ function fromHash() {
   return { entered: false, view: 'overview' };
 }
 
+function setViewHash(target) {
+  window.location.hash = target;
+}
+
 export default function App() {
   const [theme, toggleTheme] = useTheme();
   const initial = useMemo(fromHash, []);
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const [entered, setEntered] = useState(initial.entered);
-  const [view, setView] = useState(initial.view);
+  const [view, setViewState] = useState(initial.view);
   const [env, setEnv] = useState(params.get('env') === 'cloud' ? 'cloud' : 'local');
   const [system, setSystem] = useState('engine');
   const [cloudUrls, setCloudUrls] = useState(loadCloudUrls);
@@ -36,6 +40,11 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [results, setResults] = useState(null);
   const [logRegion, setLogRegion] = useState('mum');
+  const setView = (target) => {
+    setViewState(target);
+    setViewHash(target);
+    window.scrollTo(0, 0);
+  };
 
   // Clicking a region on the Infrastructure page opens that region's log.
   const openLogs = (region) => {
@@ -49,6 +58,15 @@ export default function App() {
       .then((r) => (r.ok ? r.json() : null))
       .then(setResults)
       .catch(() => setResults(null));
+  }, []);
+
+  useEffect(() => {
+    const syncHash = () => {
+      const target = window.location.hash.replace('#', '');
+      if (VIEWS.includes(target)) { setViewState(target); setEntered(true); }
+    };
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
   }, []);
 
   // When a cloud server serves this page itself (at /ui), ask it where its peers are and
@@ -77,7 +95,9 @@ export default function App() {
   };
 
   const enter = (target = 'overview') => {
-    setView(VIEWS.includes(target) ? target : 'overview');
+    const next = VIEWS.includes(target) ? target : 'overview';
+    setViewState(next);
+    setViewHash(next);
     setEntered(true);
     window.scrollTo(0, 0);
   };
@@ -120,6 +140,7 @@ export default function App() {
                       <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
                     )}
                     {view === 'convergence' && <Convergence urls={current.engine} env={env} />}
+                    {view === 'analytics' && <Convergence urls={current.engine} env={env} analyticsPage onBack={() => setView('convergence')} />}
                     {view === 'overview' && (
                       <Overview
                         engineUrls={current.engine} baselineUrls={current.baseline} meta={meta}

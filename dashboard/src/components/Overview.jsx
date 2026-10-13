@@ -29,15 +29,11 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
   const anyCut = Object.values(links).some((s) => s === 'cut');
 
   return (
-    <div className="stack">
+    <div className="stack replication-console-page">
       <div className="page-head">
         <div>
           <h1 className="page-title">{baseline ? 'Last-writer-wins baseline' : 'Replication console'}</h1>
-          <p className="page-sub">
-            {baseline
-              ? 'The comparison system. It replicates and converges, but keeps only the newest write of each record.'
-              : 'Write in any region, break the links between them, and watch the regions merge when the links return.'}
-          </p>
+          {baseline && <p className="page-sub">The comparison system. It replicates and converges, but keeps only the newest write of each record.</p>}
         </div>
         <span className="spacer" />
         {baselineUrls && (

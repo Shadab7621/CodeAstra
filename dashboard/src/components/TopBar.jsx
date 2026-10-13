@@ -45,7 +45,7 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
       </div>
 
       <div className="topbar-right">
-        {view !== 'logs' && (
+        {view !== 'logs' && view !== 'convergence' && view !== 'analytics' && (
           <Segmented
             id="env" label="Environment" value={env} onChange={onEnv}
             options={[{ value: 'local', label: 'Local' }, { value: 'cloud', label: 'Cloud' }]}
