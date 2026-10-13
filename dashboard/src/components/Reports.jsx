@@ -171,7 +171,7 @@ function AddToCart({ base, region, cartLines, reserve, onClose }) {
                     <span className="product-stock-pill">
                       {reserve && reserve.reserved
                         ? `${roomFor(product.sku)} reserved here`
-                        : `${stockOf(product.sku)} units in stock`}
+                        : `${roomFor(product.sku)} units left`}
                     </span>
                   </div>
 
