@@ -170,7 +170,7 @@ function AddToCart({ base, region, cartLines, reserve, onClose }) {
                     <span className="product-price-unit">/ unit</span>
                     <span className="product-stock-pill">
                       {reserve && reserve.reserved
-                        ? `${roomFor(product.sku)} reserved for ${REGION[region].name} while offline`
+                        ? `${roomFor(product.sku)} reserved here`
                         : `${stockOf(product.sku)} units in stock`}
                     </span>
                   </div>

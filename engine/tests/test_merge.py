@@ -328,3 +328,10 @@ def test_explanation_for_open_conflict_asks_for_operator():
     (entry,) = conflicts
     assert entry["status"] == "needs_operator" and entry["winner"] is None
     assert "operator has to choose" in entry["explanation"]
+
+def test_explanation_shows_cart_lines_by_name_and_quantity():
+    line = lambda qty: 'cart-item:v1:{"sku":"care-06","name":"First Aid Kit","price":499,"qty":%d}' % qty
+    _, conflicts = merged(create(), on_mum({"description": line(3)}), on_hyd({"description": line(4)}))
+    (entry,) = conflicts
+    assert "First Aid Kit x 3" in entry["explanation"] and "First Aid Kit x 4" in entry["explanation"]
+    assert "cart-item" not in entry["explanation"]

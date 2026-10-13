@@ -136,9 +136,20 @@ def _conflicts(report_id, field, writes, resolves, frontier, value) -> list[dict
     return entries
 
 
+_CART_PREFIX = "cart-item:v1:"
+
+
 def _show(field: str, value) -> str:
     if field == "location" and isinstance(value, dict):
         return f"{value['lat']:.4f}, {value['lon']:.4f}"
+    if isinstance(value, str) and value.startswith(_CART_PREFIX):
+        # A shopping-cart line: show "First Aid Kit x 3" rather than its JSON.
+        try:
+            item = json.loads(value[len(_CART_PREFIX):])
+            name = item.get("name") or item.get("sku") or "item"
+            return f"{name} x {item['qty']}" if item.get("qty") is not None else str(name)
+        except (ValueError, AttributeError):
+            pass
     text = str(value)
     return text if len(text) <= 40 else text[:37] + "..."
 
