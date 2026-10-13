@@ -122,7 +122,7 @@ function NodeCard({ id, node, meta, url, canAct, actions, onOpenLogs }) {
   );
 }
 
-function ReplicationMatrix({ nodes, canAct, actions }) {
+function ReplicationMatrix({ nodes }) {
   const rows = [];
   for (const from of NODES) {
     const n = nodes[from];
@@ -141,7 +141,6 @@ function ReplicationMatrix({ nodes, canAct, actions }) {
             <th>Last Exchange</th>
             <th>Waiting to Send</th>
             <th>Waiting to Receive</th>
-            <th style={{ textAlign: 'right', paddingRight: '20px' }}>Direct Action</th>
           </tr>
         </thead>
         <tbody>
@@ -170,28 +169,6 @@ function ReplicationMatrix({ nodes, canAct, actions }) {
                 </td>
                 <td className="num">{r.pending_out ?? '-'}</td>
                 <td className="num">{r.pending_in ?? '-'}</td>
-                <td style={{ textAlign: 'right', paddingRight: '20px' }}>
-                  {isCut ? (
-                    <button
-                      className="btn btn-sm btn-primary"
-                      disabled={!canAct}
-                      onClick={() => actions.toggleLink(r.from, r.id, 'cut')}
-                    >
-                      Restore Link
-                    </button>
-                  ) : isConnected ? (
-                    <button
-                      className="btn btn-sm btn-ghost"
-                      style={{ color: 'var(--bad)', borderColor: 'var(--bad-soft)' }}
-                      disabled={!canAct}
-                      onClick={() => actions.toggleLink(r.from, r.id, 'ok')}
-                    >
-                      Cut Link
-                    </button>
-                  ) : (
-                    <span className="muted">-</span>
-                  )}
-                </td>
               </tr>
             );
           })}
@@ -279,10 +256,10 @@ export default function Infrastructure({ urls, meta, token, env, onOpenLogs }) {
 
       <Panel
         title="Replication links & peering state"
-        hint="Live peer exchange matrix reported by each active region. Cut or restore links directly from the action column."
+        hint="What each region reports about every peer, in both directions. Links are cut and restored from the Overview page."
         flush
       >
-        <ReplicationMatrix nodes={nodes} canAct={canAct} actions={actions} />
+        <ReplicationMatrix nodes={nodes} />
       </Panel>
 
       <Panel
