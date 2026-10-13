@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { incidentRecords, ingestIncidents, normalizeIncident } from '../incidents';
 import { api } from '../api';
 import { NODES, REGION } from '../config';
 import Panel from './Panel';
@@ -174,26 +175,21 @@ function RecentIncidents({ feed, syncTone, pending, onAI }) {
   );
 }
 
-const REGION_SYNC_DEMO = [
-  { id: 'mum', total: 42, pending: 0, lastUpdate: '12:30:10', hash: '66bb5eed' },
-  { id: 'hyd', total: 42, pending: 0, lastUpdate: '12:30:09', hash: '66bb5eed' },
-  { id: 'sin', total: 42, pending: 0, lastUpdate: '12:30:08', hash: '66bb5eed' },
-];
-
-function RegionSyncStatus() {
+function RegionSyncStatus({ rows }) {
+  const show = (value) => (value === null || value === undefined ? '—' : value);
   return (
     <Panel title="Region-wise Sync Status" className="convergence-region-status-panel">
       <div className="convergence-region-status-list">
-        {REGION_SYNC_DEMO.map(({ id, total, pending: queued, lastUpdate, hash }) => (
+        {rows.map(({ id, host, up, total, pending: queued, lastUpdate, hash }) => (
           <article className={`convergence-region-status-row ${id}`} key={id}>
             <div className="convergence-region-status-identity">
               <span className="convergence-region-status-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="5" rx="1.5" /><rect x="5" y="14" width="14" height="5" rx="1.5" /><path d="M8 7.5h.01M8 16.5h.01" /></svg></span>
-              <div className="convergence-region-status-name"><strong>{REGION[id].name}</strong><span>localhost:{8000 + NODES.indexOf(id) + 1}</span><small><i />Healthy</small></div>
+              <div className="convergence-region-status-name"><strong>{REGION[id].name}</strong><span>{host}</span><small style={up ? undefined : { color: 'var(--bad)' }}><i />{up ? 'Healthy' : 'Unreachable'}</small></div>
             </div>
-            <div className="convergence-region-status-value"><span>Total</span><strong>{total}</strong></div>
-            <div className="convergence-region-status-value"><span>Pending</span><strong>{queued}</strong></div>
-            <div className="convergence-region-status-value"><span>Last Update</span><strong>{lastUpdate}</strong></div>
-            <div className="convergence-region-status-hash"><span>State Hash</span><strong>{hash}</strong></div>
+            <div className="convergence-region-status-value"><span>Incidents held</span><strong>{show(total)}</strong></div>
+            <div className="convergence-region-status-value"><span>Pending</span><strong>{show(queued)}</strong></div>
+            <div className="convergence-region-status-value"><span>Last Update</span><strong>{show(lastUpdate)}</strong></div>
+            <div className="convergence-region-status-hash"><span>State Hash</span><strong>{show(hash)}</strong></div>
           </article>
         ))}
       </div>
@@ -209,19 +205,21 @@ const SYNC_TIMELINE_DEMO = [
   { time: '12:30:16', text: 'All regions converged (state hash: 66bb5eed)', label: 'Converged', tone: 'converged' },
 ];
 
-function SynchronizationTimeline() {
+function SynchronizationTimeline({ events }) {
   return (
     <Panel title="Synchronization Timeline" className="convergence-timeline-panel">
-      <ol className="convergence-timeline">
-        {SYNC_TIMELINE_DEMO.map((event) => (
-          <li className={`convergence-timeline-row ${event.tone}`} key={event.time}>
-            <time>{event.time}</time>
-            <span className="convergence-timeline-marker" aria-hidden="true"><i /></span>
-            <span className="convergence-timeline-text">{event.text}</span>
-            <span className="convergence-timeline-tag">{event.label}</span>
-          </li>
-        ))}
-      </ol>
+      {events.length ? (
+        <ol className="convergence-timeline">
+          {events.map((event, index) => (
+            <li className={`convergence-timeline-row ${event.tone}`} key={`${event.time}-${index}`}>
+              <time>{event.time}</time>
+              <span className="convergence-timeline-marker" aria-hidden="true"><i /></span>
+              <span className="convergence-timeline-text">{event.text}</span>
+              <span className="convergence-timeline-tag">{event.label}</span>
+            </li>
+          ))}
+        </ol>
+      ) : <div className="convergence-incidents-empty">Waiting for the next incident from the Web Team.</div>}
     </Panel>
   );
 }
@@ -279,7 +277,31 @@ function readRegion(url) {
   return Promise.all([
     api.status(url),
     api.recovery(url).catch((error) => ({ error: error.message, episodes: [], in_progress: [] })),
-  ]).then(([status, recovery]) => ({ status, recovery }));
+    api.reports(url).then((r) => r.reports).catch(() => null),
+  ]).then(([status, recovery, reports]) => ({ status, recovery, reports }));
+}
+
+const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour12: false });
+
+/** One row per region, from what that region really holds. */
+function regionRows(nodes, urls) {
+  return NODES.map((id) => {
+    const node = nodes[id];
+    const status = node?.status;
+    const held = incidentRecords(node?.reports);
+    const walls = held.map(({ report }) => report.last_updated?.wall).filter(Number.isFinite);
+    let host = `localhost:${8000 + NODES.indexOf(id) + 1}`;
+    try { host = new URL(urls[id]).host; } catch { /* keep the default label */ }
+    return {
+      id,
+      host,
+      up: Boolean(status),
+      total: Array.isArray(node?.reports) ? held.length : null,
+      pending: status ? (status.peers || []).reduce((n, p) => n + (p.pending_out || 0) + (p.pending_in || 0), 0) : null,
+      lastUpdate: walls.length ? clock(Math.max(...walls)) : null,
+      hash: status ? String(status.state_hash || '').slice(0, 8) : null,
+    };
+  });
 }
 
 export default function Convergence({ urls, analyticsPage = false, onOpenAnalytics, onBack }) {
@@ -321,7 +343,68 @@ export default function Convergence({ urls, analyticsPage = false, onOpenAnalyti
   const totalIncidents = incidentFeed?.all?.ok ? recordsOf(incidentFeed.all.data).length : DEMO_TOTAL_INCIDENTS;
   const syncSuccess = recoveryHistory.filter((episode) => episode.status === 'recovered' && !(episode.failed || 0)).length;
   const syncFailed = recoveryHistory.reduce((sum, episode) => sum + (episode.failed || 0), 0);
-  if (analyticsPage) return <Suspense fallback={<div className="convergence-analytics-loading">Loading incident analytics map…</div>}><LocationAnalytics records={analysisRecords} isDemo={!hasIncidentFeed} onClose={onBack} /></Suspense>;
+
+  // ---- incidents in the cluster: ingest what is missing, and report how it spreads ---------
+  const liveFeed = incidentFeed?.source === 'live' && hasIncidentFeed;
+  const rows = useMemo(() => regionRows(snapshot.nodes, urls), [snapshot.nodes, key]);
+  const [timeline, setTimeline] = useState([]);
+  const push = (event) => setTimeline((list) => [...list, { time: clock(Date.now()), ...event }].slice(-8));
+  const seen = useRef({ totals: {}, converged: '' });
+
+  // Write incidents the cluster does not hold yet into Mumbai. Only a live feed is ever written:
+  // cached and demo data are never put into the cluster.
+  useEffect(() => {
+    if (analyticsPage || !liveFeed) return;
+    const mumbai = snapshot.nodes.mum;
+    if (!mumbai?.status || !Array.isArray(mumbai.reports)) return;
+    const wanted = recordsOf(incidentFeed.all?.ok ? incidentFeed.all.data : incidentFeed.latest.data)
+      .map(normalizeIncident).filter(Boolean);
+    const known = new Set(NODES.flatMap((id) => incidentRecords(snapshot.nodes[id]?.reports).map(({ incident }) => incident.incident_id)));
+    const missing = wanted.filter((incident) => !known.has(incident.incident_id));
+    if (missing.length === 0) return;
+    ingestIncidents(urls.mum, missing).then((created) => {
+      if (created.length === 0) return;
+      push({ text: `Fetched ${created.length} new incident${created.length > 1 ? 's' : ''} from Web Team (${created.join(', ')})`, label: 'Fetch', tone: 'fetch' });
+      push({ text: 'Stored locally in Mumbai', label: 'Local Write', tone: 'write' });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incidentFeed, snapshot.at]);
+
+  // Announce each step the first time it is really observed in the nodes.
+  useEffect(() => {
+    if (analyticsPage || rows.every((r) => r.total === null)) return;
+    const mum = rows.find((r) => r.id === 'mum');
+    for (const row of rows) {
+      if (row.id === 'mum' || row.total === null) continue;
+      const before = seen.current.totals[row.id] ?? 0;
+      if (row.total > before && row.total >= (mum.total || 0) && row.total > 0) {
+        push({ text: `Replicated to ${REGION[row.id].name} (${row.total} incident${row.total > 1 ? 's' : ''})`, label: 'Replication', tone: 'replication' });
+      }
+      seen.current.totals[row.id] = row.total;
+    }
+    const totals = new Set(rows.map((r) => r.total));
+    const hashes = new Set(rows.map((r) => r.hash));
+    const allUp = rows.every((r) => r.up && r.total !== null);
+    if (allUp && totals.size === 1 && hashes.size === 1 && rows[0].total > 0) {
+      const marker = `${rows[0].total}:${rows[0].hash}`;
+      if (seen.current.converged !== marker) {
+        seen.current.converged = marker;
+        push({ text: `All regions converged (state hash: ${rows[0].hash})`, label: 'Converged', tone: 'converged' });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  if (analyticsPage) {
+    return (
+      <>
+        <WebIncidentFeed onFeed={setIncidentFeed} />
+        <Suspense fallback={<div className="convergence-analytics-loading">Loading incident analytics map…</div>}>
+          <LocationAnalytics records={analysisRecords} isDemo={!hasIncidentFeed} onClose={onBack} />
+        </Suspense>
+      </>
+    );
+  }
   return (
     <div className="stack convergence-page">
       <header className="convergence-page-head">
@@ -358,8 +441,8 @@ export default function Convergence({ urls, analyticsPage = false, onOpenAnalyti
 
       <WebIncidentFeed onFeed={setIncidentFeed} />
       <RecentIncidents feed={incidentFeed} syncTone={state.tone} pending={pending} onAI={() => { if (onOpenAnalytics) onOpenAnalytics(); else { window.location.hash = 'analytics'; window.dispatchEvent(new HashChangeEvent('hashchange')); } }} />
-      <RegionSyncStatus />
-      <SynchronizationTimeline />
+      <RegionSyncStatus rows={rows} />
+      <SynchronizationTimeline events={liveFeed ? timeline : SYNC_TIMELINE_DEMO} />
     </div>
   );
 }
