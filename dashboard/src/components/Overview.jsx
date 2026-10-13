@@ -49,78 +49,60 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
         onToggleLink={actions.toggleLink} onPause={actions.pause} onResume={actions.resume} onSkew={actions.skew}
         onHealAll={actions.healAll}
       />
-      <div className="grid-2 overview-split">
-        <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} />
-        <div className="topology-col">
-          <Panel
-            className="topology-full-card"
-            title="Cluster Topology & Signal Mesh"
-            hint="Interactive network mesh. Click on any curved signal path or badge to simulate partition."
-            actions={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {anyCut && (
-                  <button
-                    className="btn btn-sm btn-primary"
-                    disabled={!canAct}
-                    onClick={actions.healAll}
-                  >
-                    Heal All Links
-                  </button>
-                )}
-                <span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>
-                  {summary.text}
-                </span>
-              </div>
-            }
-          >
-            <Topology
-              nodes={nodes}
-              links={links}
-              meta={meta}
-              onToggleLink={canAct ? actions.toggleLink : undefined}
-            />
 
-            {/* Direct Signal Switches - Clean rows, zero text clipping */}
-            <div className="signals-control-box">
-              <div className="signals-control-head">
-                <div className="signals-head-left">
-                  <span className="dot ok live" />
-                  <span className="signals-control-title">Direct Signal Switches</span>
-                </div>
-                <span className="signals-control-hint">1-click instant partition toggle</span>
-              </div>
-              <div className="signals-control-list">
-                {PAIRS.map(([a, b]) => {
-                  const st = linkState(nodes, a, b);
-                  const isCut = st === 'cut';
-                  return (
-                    <button
-                      key={`${a}-${b}`}
-                      className={`signal-switch-row ${isCut ? 'cut' : 'ok'}`}
-                      disabled={!canAct || st === 'unknown'}
-                      onClick={() => actions.toggleLink(a, b, st)}
-                    >
-                      <div className="switch-row-left">
-                        <span className={`dot ${isCut ? 'bad' : 'ok live'}`} />
-                        <span className="switch-node-pair">
-                          <strong>{REGION[a].name}</strong>
-                          <span className="switch-arrow">↔</span>
-                          <strong>{REGION[b].name}</strong>
-                        </span>
-                      </div>
-                      <div className="switch-row-right">
-                        <span className={`switch-pill ${isCut ? 'cut' : 'ok'}`}>
-                          {isCut ? 'Cut · Click to Restore' : 'Connected · Click to Cut'}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+      <Panel
+        title="Network"
+        hint="The map shows the state of each link. Use the switches to cut or restore one."
+        actions={(
+          <>
+            {anyCut && (
+              <button className="btn btn-sm btn-primary" disabled={!canAct} onClick={actions.healAll}>
+                Heal all links
+              </button>
+            )}
+            <span className={`pill ${summary.tone === 'ok' ? 'ok' : summary.tone === 'bad' ? 'bad' : 'warn'}`}>
+              {summary.text}
+            </span>
+          </>
+        )}
+      >
+        <div className="network-split">
+          <Topology nodes={nodes} links={links} meta={meta} />
+
+          <div className="signals-control-box">
+            <div className="signals-control-head">
+              <span className="signals-control-title">Links</span>
+              <span className="signals-control-hint">Click a link to cut or restore it</span>
             </div>
-          </Panel>
+            <div className="signals-control-list">
+              {PAIRS.map(([a, b]) => {
+                const st = linkState(nodes, a, b);
+                const isCut = st === 'cut';
+                return (
+                  <button
+                    key={`${a}-${b}`}
+                    className={`signal-switch-row ${isCut ? 'cut' : 'ok'}`}
+                    disabled={!canAct || st === 'unknown'}
+                    onClick={() => actions.toggleLink(a, b, st)}
+                  >
+                    <span className="switch-node-pair">
+                      <span className={`dot ${isCut ? 'bad' : 'ok live'}`} />
+                      <strong>{REGION[a].name}</strong>
+                      <span className="switch-arrow">↔</span>
+                      <strong>{REGION[b].name}</strong>
+                    </span>
+                    <span className={`switch-pill ${isCut ? 'cut' : 'ok'}`}>
+                      {isCut ? 'Cut · restore' : 'Connected · cut'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
+      </Panel>
+
+      <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} />
 
       <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={baseline ? 'baseline' : 'engine'} stockIssues={stockIssues} />
     </div>

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import Compare from './components/Compare';
 import Convergence from './components/Convergence';
 import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
@@ -14,9 +13,9 @@ import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'compare', 'logs', 'convergence'];
+const VIEWS = ['overview', 'infrastructure', 'logs', 'convergence'];
 
-// A hash such as #overview, #infrastructure or #compare opens the console directly.
+// A hash such as #overview, #infrastructure or #logs opens the console directly.
 function fromHash() {
   const h = window.location.hash.replace('#', '');
   if (VIEWS.includes(h)) return { entered: true, view: h };
@@ -74,10 +73,7 @@ export default function App() {
 
   const changeEnv = (next) => {
     setEnv(next);
-    if (next === 'cloud') {
-      setSystem('engine');
-      if (view === 'compare') setView('overview');
-    }
+    if (next === 'cloud') setSystem('engine');
   };
 
   const enter = (target = 'overview') => {
@@ -117,9 +113,6 @@ export default function App() {
                     initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }}
                   >
-                    {view === 'compare' && (
-                      <Compare engineUrls={envs.local.engine} baselineUrls={envs.local.baseline} results={results} />
-                    )}
                     {view === 'infrastructure' && (
                       <Infrastructure urls={current.engine} meta={meta} token={token} env={env} onOpenLogs={openLogs} />
                     )}

@@ -83,7 +83,6 @@ instances) and `python infra\azure_cluster.py update sin` (in place).
 - **Overview**: regions, records, conflict ledger and history check, with an Engine / Baseline switch.
 - **Infrastructure**: the live deployment. Provider zones (AWS, Azure), each server's machine type,
   address, round-trip latency, chain head, and the replication links between regions.
-- **Compare**: the same link failure run on our engine and on the last-writer-wins baseline.
 - **Logs**: each region's activity (writes, links, sync, conflicts, recoveries), stored in
   MongoDB Atlas. Click a region on the Infrastructure page to open its log. The Atlas address goes
   in the git-ignored `infra/.mongo_uri`.
@@ -94,9 +93,9 @@ instances) and `python infra\azure_cluster.py update sin` (in place).
   [React Bits](https://reactbits.dev), kept in `dashboard/src/reactbits` with their license
   (MIT + Commons Clause).
 - **Settings** holds the cloud addresses and the admin token (token is kept for the browser session only).
-- Handy URL options: `#overview`, `#infrastructure` or `#compare` opens a view directly,
+- Handy URL options: `#overview`, `#infrastructure` or `#logs` opens a view directly,
   `?env=cloud` starts on the cloud cluster, `?theme=light` forces a theme, `?motion=off` skips
-  animations, `?autorun=1` (with `#compare`) starts the scenario.
+  animations.
 
 ## Benchmark: engine vs last-writer-wins
 

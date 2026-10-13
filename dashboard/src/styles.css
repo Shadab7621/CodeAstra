@@ -333,26 +333,9 @@ h1, h2, h3, p { margin: 0; }
 @keyframes flow { to { stroke-dashoffset: -58; } }
 .edge.cut .edge-line { stroke: var(--bad); stroke-dasharray: 7 8; stroke-width: 2.4; }
 .edge.unknown .edge-line { stroke-dasharray: 2 7; opacity: 0.5; }
-.edge-hit { fill: none; stroke: transparent; stroke-width: 44; cursor: pointer; }
 .edge:hover .edge-line { stroke-width: 3.4; }
 
 /* Interactive topology mid-point badges - completely stable, zero movement on hover */
-.edge-badge-group { cursor: default; }
-.edge-badge-group.clickable { cursor: pointer; }
-.edge-badge-pill { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.6; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.22)); transition: fill 0.18s ease, stroke 0.18s ease, filter 0.18s ease; }
-.edge-badge-pill.ok { fill: var(--surface); stroke: color-mix(in srgb, var(--ok) 65%, transparent); }
-.edge-badge-group.clickable:hover .edge-badge-pill.ok { fill: var(--bad-soft); stroke: var(--bad); filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.35)); }
-.edge-badge-pill.cut { fill: var(--bad-soft); stroke: var(--bad); stroke-dasharray: 4 3; }
-.edge-badge-group.clickable:hover .edge-badge-pill.cut { fill: var(--ok-soft); stroke: var(--ok); stroke-dasharray: none; filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.35)); }
-.edge-badge-text { font-family: var(--font); font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; fill: var(--text); user-select: none; pointer-events: none; transition: fill 0.18s ease; }
-.edge-badge-text.cut { fill: var(--bad); }
-.edge-badge-group.clickable:hover .edge-badge-text.ok { fill: var(--bad); }
-.edge-badge-group.clickable:hover .edge-badge-text.cut { fill: var(--ok); }
-.edge-badge-dot { pointer-events: none; transition: fill 0.18s ease; }
-.edge-badge-dot.ok { fill: var(--ok); }
-.edge-badge-dot.cut { fill: var(--bad); }
-.edge-badge-group.clickable:hover .edge-badge-dot.ok { fill: var(--bad); }
-.edge-badge-group.clickable:hover .edge-badge-dot.cut { fill: var(--ok); }
 
 .tnode-body { fill: var(--surface); stroke: var(--border-strong); stroke-width: 2; transition: stroke 0.3s; }
 .tnode-halo { fill: none; stroke: transparent; stroke-width: 1; }
@@ -362,9 +345,9 @@ h1, h2, h3, p { margin: 0; }
 .tnode.down .tnode-body { stroke: var(--bad); stroke-dasharray: 4 5; }
 .tnode-pulse { fill: none; stroke: var(--accent-2); stroke-width: 2; animation: ping 1.3s ease-out infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes ping { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.7); opacity: 0; } }
-.tnode-code { text-anchor: middle; font: 700 15px var(--font); fill: var(--text); letter-spacing: 0.04em; }
-.tnode-name { text-anchor: middle; font: 650 15px var(--font); fill: var(--text); }
-.tnode-sub { text-anchor: middle; font: 500 13px var(--mono); fill: var(--muted); }
+.tnode-code { text-anchor: middle; font: 700 17px var(--font); fill: var(--text); letter-spacing: 0.04em; }
+.tnode-name { text-anchor: middle; font: 700 17px var(--font); fill: var(--text); }
+.tnode-sub { text-anchor: middle; font: 500 13.5px var(--mono); fill: var(--muted); }
 
 /* ---------- tables ---------- */
 .table-wrap { overflow-x: auto; }
@@ -1559,3 +1542,20 @@ tr.flash td { animation: flash 1.2s var(--ease); }
 .conflict-why.open { color: var(--warn); }
 .candidate.won { border-color: var(--ok); }
 .kept-pill { margin-left: 8px; vertical-align: middle; }
+
+
+/* ---- Network card: map on the left, one set of switches on the right ------------------------ */
+.topology { min-height: 0; }
+.edge-chip .chip-bg { fill: var(--surface); stroke: none; }
+.edge-chip rect { fill: var(--surface); stroke: color-mix(in srgb, var(--ok) 60%, transparent); stroke-width: 1.6; }
+.edge-chip text { font: 700 13px var(--font); fill: var(--ok); pointer-events: none; }
+.edge-chip.cut rect { fill: var(--bad-soft); stroke: var(--bad); stroke-dasharray: 4 3; }
+.edge-chip.cut text { fill: var(--bad); }
+
+.network-split { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 28px; align-items: center; }
+.network-split .topology { width: 100%; height: auto; max-height: 460px; }
+.network-split .signals-control-box { margin-top: 0; }
+.signal-switch-row { flex-wrap: wrap; }
+.switch-node-pair { flex-wrap: wrap; }
+@media (max-width: 1060px) { .network-split { grid-template-columns: 1fr; } }
+.edge-chip .chip-bg, .edge-chip.cut .chip-bg { fill: var(--surface); stroke: none; stroke-dasharray: none; }

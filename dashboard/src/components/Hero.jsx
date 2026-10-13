@@ -91,7 +91,6 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
           <div className="hero-links">
             <button type="button" onClick={() => onEnter('overview')}>Console</button>
             <button type="button" onClick={() => onEnter('infrastructure')}>Infrastructure</button>
-            <button type="button" onClick={() => onEnter('compare')}>Compare</button>
           </div>
         </div>
 

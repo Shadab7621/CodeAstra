@@ -23,7 +23,6 @@ export function Segmented({ id, value, options, onChange, label }) {
 }
 
 export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme, onSettings, onHome }) {
-  const cloud = env === 'cloud';
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -39,7 +38,6 @@ export default function TopBar({ view, onView, env, onEnv, theme, onToggleTheme,
           options={[
             { value: 'overview', label: 'Overview' },
             { value: 'infrastructure', label: 'Infrastructure' },
-            { value: 'compare', label: 'Compare', disabled: cloud, title: cloud ? 'The comparison runs on the local clusters' : undefined },
             { value: 'logs', label: 'Logs' },
             { value: 'convergence', label: 'Convergence' },
           ]}
