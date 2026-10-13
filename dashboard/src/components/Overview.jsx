@@ -4,7 +4,7 @@ import { useCluster } from '../hooks';
 import { ReadOnlyNotice, useClusterActions, useSelectedRegion } from './ClusterView';
 import Ledger from './Ledger';
 import Panel from './Panel';
-import Regions, { PAIRS, allLinks, linkState, syncSummary } from './Regions';
+import Regions, { DegradationBanner, PAIRS, allLinks, linkState, syncSummary } from './Regions';
 import Reports from './Reports';
 import Topology from './Topology';
 import { Segmented } from './TopBar';
@@ -44,6 +44,7 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
       </div>
 
       <ReadOnlyNotice canAct={canAct} />
+      <DegradationBanner nodes={nodes} />
       <Regions
         nodes={nodes} meta={meta} canAct={canAct}
         onToggleLink={actions.toggleLink} onPause={actions.pause} onResume={actions.resume} onSkew={actions.skew}
