@@ -220,9 +220,6 @@ export default function RegionLogs({ urls, meta, region, onRegion }) {
             <div className="rl-title-box">
               <div className="rl-main-title">
                 <span>{REGION[region].name} ({nodeUp ? 'Active' : 'Offline'})</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
               </div>
               <div className="rl-sub-meta">
                 Region {regionInfo.index} • {regionInfo.continent}
