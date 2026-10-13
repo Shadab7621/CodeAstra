@@ -50,6 +50,17 @@ export function findStockIssues(reports) {
     .filter((e) => e.over > 0);
 }
 
+/** Units of each product currently in one region's cart: { sku: quantity }. */
+export function totalsBySku(reports) {
+  const totals = {};
+  for (const report of reports || []) {
+    const item = cartItem(report.description);
+    if (!item) continue;
+    totals[item.sku] = (totals[item.sku] || 0) + lineQty(report, item);
+  }
+  return totals;
+}
+
 /** The edits that bring a product back within stock: newest lines are cut first. */
 export function stockFixes(issue) {
   let excess = issue.over;

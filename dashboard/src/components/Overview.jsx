@@ -1,6 +1,7 @@
 import { findStockIssues } from '../cart';
 import { REGION } from '../config';
 import { useCluster } from '../hooks';
+import { useReservations } from '../reservations';
 import { ReadOnlyNotice, useClusterActions, useSelectedRegion } from './ClusterView';
 import Ledger from './Ledger';
 import Panel from './Panel';
@@ -18,6 +19,8 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
   const canAct = env === 'local' || Boolean(token);
   const selectedNode = nodes[selected];
   const conflicts = selectedNode && selectedNode.state === 'up' ? selectedNode.conflicts : [];
+
+  const reserve = useReservations(nodes, selected);
 
   const stockIssues = selectedNode && selectedNode.state === 'up' ? findStockIssues(selectedNode.reports) : [];
 
@@ -103,7 +106,7 @@ export default function Overview({ engineUrls, baselineUrls, meta, token, env, s
         </div>
       </Panel>
 
-      <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} />
+      <Reports nodes={nodes} urls={urls} selected={selected} onSelect={setSelected} reserve={reserve} />
 
       <Ledger conflicts={conflicts} base={urls[selected]} token={token} kind={baseline ? 'baseline' : 'engine'} stockIssues={stockIssues} />
     </div>

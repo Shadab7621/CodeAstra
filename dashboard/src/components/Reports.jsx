@@ -58,27 +58,41 @@ function Durability({ value }) {
   return <span className="muted">-</span>;
 }
 
-function AddToCart({ base, region, cartLines, onClose }) {
+function AddToCart({ base, region, cartLines, reserve, onClose }) {
   const toast = useToast();
   const [quantities, setQuantities] = useState({});
   const [busySku, setBusySku] = useState('');
   const [addedSku, setAddedSku] = useState('');
   const [added, setAdded] = useState({ count: 0, total: 0 });
+  const [addedBy, setAddedBy] = useState({});
+  const [startBy] = useState(() => {
+    const by = {};
+    for (const { report, item } of cartLines) by[item.sku] = (by[item.sku] || 0) + lineQty(report, item);
+    return by;
+  });
   const [startingCart] = useState(() => ({
     count: cartLines.reduce((sum, { report, item }) => sum + lineQty(report, item), 0),
     total: cartLines.reduce((sum, { report, item }) => sum + item.price * lineQty(report, item), 0),
   }));
 
+  // Units this region may still add of a product. While a link is down that is its reserved share.
+  const roomFor = (sku) => {
+    if (!reserve) return Math.max(0, stockOf(sku) - (startBy[sku] || 0) - (addedBy[sku] || 0));
+    const optimistic = reserve.capFor(sku) - (startBy[sku] || 0) - (addedBy[sku] || 0);
+    return Math.max(0, Math.min(reserve.roomFor(sku), optimistic));
+  };
+
   const updateQty = (sku, delta) => {
     setQuantities((prev) => {
       const cur = prev[sku] || 1;
-      const next = Math.max(1, Math.min(10, stockOf(sku), cur + delta));
+      const next = Math.max(1, Math.min(10, Math.max(1, roomFor(sku)), cur + delta));
       return { ...prev, [sku]: next };
     });
   };
 
   const addProduct = async (product) => {
-    const quantity = Number(quantities[product.sku] || 1);
+    const quantity = Math.min(Number(quantities[product.sku] || 1), roomFor(product.sku));
+    if (quantity < 1) return;
     setBusySku(product.sku);
     try {
       await api.create(base, {
@@ -89,6 +103,8 @@ function AddToCart({ base, region, cartLines, onClose }) {
         reporter: 'shopper',
         location: { lat: COORDS[region][0], lon: COORDS[region][1] },
       });
+      setAddedBy((cur) => ({ ...cur, [product.sku]: (cur[product.sku] || 0) + quantity }));
+      setQuantities((cur) => ({ ...cur, [product.sku]: 1 }));
       setAdded((current) => ({
         count: current.count + quantity,
         total: current.total + product.price * quantity,
@@ -152,7 +168,11 @@ function AddToCart({ base, region, cartLines, onClose }) {
                   <div className="product-price-row">
                     <span className="product-price">{money(product.price)}</span>
                     <span className="product-price-unit">/ unit</span>
-                    <span className="product-stock-pill">{stockOf(product.sku)} units in stock</span>
+                    <span className="product-stock-pill">
+                      {reserve && reserve.reserved
+                        ? `${roomFor(product.sku)} reserved for ${REGION[region].name} while offline`
+                        : `${stockOf(product.sku)} units in stock`}
+                    </span>
                   </div>
 
                   <div className="product-actions-row">
@@ -171,7 +191,7 @@ function AddToCart({ base, region, cartLines, onClose }) {
                         type="button"
                         className="stepper-btn"
                         onClick={() => updateQty(product.sku, 1)}
-                        disabled={currentQty >= Math.min(10, stockOf(product.sku)) || isBusy}
+                        disabled={currentQty >= Math.min(10, roomFor(product.sku)) || isBusy}
                         aria-label="Increase quantity"
                       >
                         +
@@ -181,7 +201,8 @@ function AddToCart({ base, region, cartLines, onClose }) {
                     <button
                       type="button"
                       className={`btn product-add-btn ${isJustAdded ? 'is-added' : ''}`}
-                      disabled={Boolean(busySku)}
+                      disabled={Boolean(busySku) || roomFor(product.sku) < 1}
+                      title={roomFor(product.sku) < 1 && reserve && reserve.reserved ? 'This region has used its reserved share. More becomes available when the links return.' : undefined}
                       onClick={() => addProduct(product)}
                     >
                       {isBusy ? (
@@ -194,7 +215,7 @@ function AddToCart({ base, region, cartLines, onClose }) {
                       ) : (
                         <>
                           <Cart />
-                          <span>Add</span>
+                          <span>{roomFor(product.sku) < 1 ? 'Share used' : 'Add'}</span>
                         </>
                       )}
                     </button>
@@ -236,7 +257,7 @@ function AddToCart({ base, region, cartLines, onClose }) {
   );
 }
 
-export default function Reports({ nodes, urls, selected, onSelect }) {
+export default function Reports({ nodes, urls, selected, onSelect, reserve }) {
   const [creating, setCreating] = useState(false);
   const [flash, setFlash] = useState({});
   const seen = useRef({});
@@ -256,7 +277,8 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
     if (lines.length === 0) return;
     const { report, item } = lines[0];
     const total = cartRows.find((r) => r.sku === sku)?.quantity ?? 0;
-    if (delta > 0 && total >= stockOf(sku)) return;
+    const cap = reserve ? reserve.capFor(sku) : stockOf(sku);
+    if (delta > 0 && total >= cap) return;
     const next = Math.max(1, lineQty(report, item) + delta);
     if (next === lineQty(report, item)) return;
     try {
@@ -344,7 +366,7 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
                           disabled={quantity <= 1} onClick={() => changeQty(sku, -1)}>−</button>
                         <span className="stepper-count">{quantity}</span>
                         <button type="button" className="stepper-btn" aria-label="Increase quantity"
-                          disabled={quantity >= stockOf(sku)} onClick={() => changeQty(sku, 1)}>+</button>
+                          disabled={quantity >= (reserve ? reserve.capFor(sku) : stockOf(sku))} onClick={() => changeQty(sku, 1)}>+</button>
                       </div>
                     </td>
                     <td className="cart-number cart-line-total">{money(item.price * quantity)}</td>
@@ -365,7 +387,7 @@ export default function Reports({ nodes, urls, selected, onSelect }) {
       )}
 
       <AnimatePresence>
-        {creating && <AddToCart key="cart" base={urls[selected]} region={selected} cartLines={cartLines} onClose={() => setCreating(false)} />}
+        {creating && <AddToCart key="cart" base={urls[selected]} region={selected} cartLines={cartLines} reserve={reserve} onClose={() => setCreating(false)} />}
       </AnimatePresence>
     </Panel>
   );

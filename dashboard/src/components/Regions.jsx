@@ -111,7 +111,7 @@ export function DegradationBanner({ nodes }) {
         <div>
           <div className="degrade-k">Limited until reconnect</div>
           <ul>
-            <li>Stock is checked against each region's own view, so totals are reconciled afterwards</li>
+            <li>Stock-limited items: each region sells only its reserved share (a third of what was left when the link dropped), so nothing is oversold</li>
             {stale.map((m) => (
               <li key={m.id}>{REGION[m.id].name}'s view of its cut-off peers is up to {ago(m.staleMs)} old</li>
             ))}
