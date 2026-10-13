@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { stockOf, totalsBySku } from './cart';
+import { RESERVATIONS_ENABLED, stockOf, totalsBySku } from './cart';
 import { NODES } from './config';
 import { regionMode } from './components/Regions';
 
@@ -22,7 +22,7 @@ export function useReservations(nodes, region) {
   // Keep the picture fresh while connected; keep it as it was the moment the link dropped.
   if (totals && (mode === 'normal' || !frozen.current[region])) frozen.current[region] = totals;
 
-  const reserved = mode !== 'normal' && mode !== 'connecting' && Boolean(frozen.current[region]);
+  const reserved = RESERVATIONS_ENABLED && mode !== 'normal' && mode !== 'connecting' && Boolean(frozen.current[region]);
 
   const capFor = (sku) => {
     if (!reserved) return stockOf(sku);

@@ -8,6 +8,14 @@ export const STOCK = {
 };
 export const stockOf = (sku) => STOCK[sku] ?? Infinity;
 
+/**
+ * Reservations stop a cut-off region from overselling by limiting it to its share of the stock.
+ * They are switched off so both regions can sell on their own view while apart: the oversell is
+ * then detected after the reconnect, shown in the conflict ledger and trimmed by Auto resolve.
+ * Set to true to prevent the oversell instead.
+ */
+export const RESERVATIONS_ENABLED = false;
+
 export function cartItem(description) {
   if (!description?.startsWith(CART_PREFIX)) return null;
   try { return JSON.parse(description.slice(CART_PREFIX.length)); } catch { return null; }

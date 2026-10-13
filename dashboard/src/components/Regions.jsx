@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { RESERVATIONS_ENABLED } from '../cart';
 import { NODES, REGION } from '../config';
 import { PROVIDER_COLOR } from '../infra';
 import { offsetLabel, shortHash } from '../lib';
@@ -111,7 +112,11 @@ export function DegradationBanner({ nodes }) {
         <div>
           <div className="degrade-k">Limited until reconnect</div>
           <ul>
-            <li>Stock-limited items: each region sells only its reserved share (a third of what was left when the link dropped), so nothing is oversold</li>
+            <li>
+              {RESERVATIONS_ENABLED
+                ? 'Stock-limited items: each region sells only its reserved share (a third of what was left when the link dropped), so nothing is oversold'
+                : 'Stock is counted from each region\'s own view, so two regions can sell the same last units. The overlap is found and trimmed after reconnect'}
+            </li>
             {stale.map((m) => (
               <li key={m.id}>{REGION[m.id].name}'s view of its cut-off peers is up to {ago(m.staleMs)} old</li>
             ))}
