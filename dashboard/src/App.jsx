@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import Convergence from './components/Convergence';
+import ErrorBoundary from './components/ErrorBoundary';
 import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
 import Overview from './components/Overview';
@@ -133,20 +134,26 @@ export default function App() {
                     initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }}
                   >
-                    {view === 'infrastructure' && (
-                      <Infrastructure urls={current.engine} meta={meta} token={token} env={env} onOpenLogs={openLogs} />
-                    )}
-                    {view === 'logs' && (
-                      <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
-                    )}
-                    {view === 'convergence' && <Convergence urls={current.engine} env={env} />}
-                    {view === 'analytics' && <Convergence urls={current.engine} env={env} analyticsPage onBack={() => setView('convergence')} />}
-                    {view === 'overview' && (
-                      <Overview
-                        engineUrls={current.engine} baselineUrls={current.baseline} meta={meta}
-                        token={token} env={env} system={system} onSystem={setSystem}
-                      />
-                    )}
+                    <ErrorBoundary
+                      key={view}
+                      onBack={() => setView(view === 'analytics' ? 'convergence' : 'overview')}
+                      backLabel={view === 'analytics' ? 'Back to Convergence' : 'Back to Overview'}
+                    >
+                      {view === 'infrastructure' && (
+                        <Infrastructure urls={current.engine} meta={meta} token={token} env={env} onOpenLogs={openLogs} />
+                      )}
+                      {view === 'logs' && (
+                        <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
+                      )}
+                      {view === 'convergence' && <Convergence urls={current.engine} env={env} />}
+                      {view === 'analytics' && <Convergence urls={current.engine} env={env} analyticsPage onBack={() => setView('convergence')} />}
+                      {view === 'overview' && (
+                        <Overview
+                          engineUrls={current.engine} baselineUrls={current.baseline} meta={meta}
+                          token={token} env={env} system={system} onSystem={setSystem}
+                        />
+                      )}
+                    </ErrorBoundary>
                   </motion.div>
                 </AnimatePresence>
               </main>
