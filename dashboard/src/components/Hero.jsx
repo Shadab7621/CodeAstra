@@ -82,7 +82,7 @@ export default function Hero({ onEnter, onToggleTheme, results }) {
       <nav className="hero-nav">
         <div className="hero-nav-left">
           <span className="brand">
-            <img src="/logo.png" alt="DisasterSync" className="brand-mark" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="DisasterSync" className="brand-mark" />
             <span className="brand-name">DisasterSync</span>
           </span>
         </div>
