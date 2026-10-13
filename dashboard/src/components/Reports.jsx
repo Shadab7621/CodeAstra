@@ -83,8 +83,9 @@ function AddToCart({ base, region, cartLines, onClose }) {
     try {
       await api.create(base, {
         incident_type: 'medical',
-        severity: quantity,
-        description: `${CART_PREFIX}${JSON.stringify({ sku: product.sku, name: product.name, category: product.category, price: product.price })}`,
+        // The engine accepts severity 1-5 only, so the real quantity travels in the line itself.
+        severity: Math.min(quantity, 5),
+        description: `${CART_PREFIX}${JSON.stringify({ sku: product.sku, name: product.name, category: product.category, price: product.price, qty: quantity })}`,
         reporter: 'shopper',
         location: { lat: COORDS[region][0], lon: COORDS[region][1] },
       });
