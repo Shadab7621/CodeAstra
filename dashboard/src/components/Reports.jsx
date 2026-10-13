@@ -171,7 +171,7 @@ function AddToCart({ base, region, cartLines, reserve, onClose }) {
                     <span className="product-stock-pill">
                       {reserve && reserve.reserved
                         ? `${roomFor(product.sku)} reserved here`
-                        : `${roomFor(product.sku)} units left`}
+                        : `${roomFor(product.sku)} of ${stockOf(product.sku)} left`}
                     </span>
                   </div>
 
@@ -341,7 +341,7 @@ export default function Reports({ nodes, urls, selected, onSelect, reserve }) {
           <div className="table-wrap">
           <table className="cart-table">
             <thead>
-              <tr><th>Item</th><th>Unit price</th><th>Total stock</th><th>Quantity</th><th>Total</th><th>Replication</th></tr>
+              <tr><th>Item</th><th>Unit price</th><th>Stock</th><th>Quantity</th><th>Total</th><th>Replication</th></tr>
             </thead>
             <tbody>
               <AnimatePresence initial={false}>
@@ -359,10 +359,10 @@ export default function Reports({ nodes, urls, selected, onSelect, reserve }) {
                     </td>
                     <td className="cart-number">{money(item.price)}</td>
                     <td className="cart-number">
-                      {stockOf(sku)}
+                      {stockOf(sku)} in stock
                       <div className="cart-item-meta">{quantity > stockOf(sku)
                         ? <span className="pill bad">Over stock by {quantity - stockOf(sku)}</span>
-                        : `${stockOf(sku) - quantity} left after this cart`}</div>
+                        : `${quantity} in cart · ${stockOf(sku) - quantity} left`}</div>
                     </td>
                     <td>
                       <div className="product-stepper" role="group" aria-label={`Quantity for ${item.name}`}>
