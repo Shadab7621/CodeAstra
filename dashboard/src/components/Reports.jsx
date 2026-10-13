@@ -270,10 +270,14 @@ export default function Reports({ nodes, urls, selected, onSelect, reserve }) {
   const cartRows = mergeLines(cartLines);
   const toast = useToast();
 
-  // Editing writes the new quantity into the line's first record. Two regions editing the same
-  // line while apart produce a real conflict, which lands in the ledger.
+  // Editing writes the new quantity into one record of the product. The record is the same in
+  // every region (the lowest id), so two regions editing a line while apart always collide and
+  // land in the ledger. The edit carries the quantity it started from and where it was made, so
+  // an equal result from two regions is still a visible conflict and no increment is lost.
   const changeQty = async (sku, delta) => {
-    const lines = cartLines.filter(({ item }) => item.sku === sku);
+    const lines = cartLines
+      .filter(({ item }) => item.sku === sku)
+      .sort((a, b) => (a.report.report_id < b.report.report_id ? -1 : 1));
     if (lines.length === 0) return;
     const { report, item } = lines[0];
     const total = cartRows.find((r) => r.sku === sku)?.quantity ?? 0;
@@ -283,7 +287,7 @@ export default function Reports({ nodes, urls, selected, onSelect, reserve }) {
     if (next === lineQty(report, item)) return;
     try {
       await api.patch(urls[selected], report.report_id,
-        { description: `${CART_PREFIX}${JSON.stringify({ ...item, qty: next })}` });
+        { description: `${CART_PREFIX}${JSON.stringify({ ...item, qty: next, base: lineQty(report, item), by: selected })}` });
     } catch (err) {
       toast(`Could not change quantity: ${err.message}`, 'bad');
     }

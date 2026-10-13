@@ -23,6 +23,19 @@ function autoChoice(entry) {
   const carts = entry.candidates.map((c) => ({ c, cart: cartOf(c.value) }));
   if (carts.every(({ cart }) => cart && Number.isFinite(cart.qty))) {
     const top = carts.reduce((a, b) => (b.cart.qty > a.cart.qty ? b : a));
+    if (carts.every(({ cart }) => Number.isFinite(cart.base))) {
+      // Every edit started from the same quantity. Apply each region's change to it, so two
+      // regions that each added one end up with two more, not one.
+      const start = carts[0].cart.base;
+      const merged = Math.max(1, start + carts.reduce((sum, { cart }) => sum + (cart.qty - cart.base), 0));
+      const parts = carts
+        .map(({ c, cart }) => `${REGION[c.origin]?.name || c.origin} ${cart.qty - cart.base >= 0 ? '+' : ''}${cart.qty - cart.base}`)
+        .join(', ');
+      return {
+        candidate: top.c, merged, topCart: top.cart,
+        reason: `Both changes are applied to the starting quantity of ${start} (${parts}), so nobody's change is lost. The line now holds ${merged}.`,
+      };
+    }
     return { candidate: top.c, reason: 'Cart quantity conflicts keep the higher quantity, so no item a customer asked for is lost.' };
   }
   const latest = [...entry.candidates].sort(newest).at(-1);
@@ -157,11 +170,17 @@ export default function Ledger({ conflicts, base, token, kind, stockIssues = [] 
         });
       }
       for (const entry of open) {
-        const { candidate, reason } = autoChoice(entry);
+        const { candidate, reason, merged, topCart } = autoChoice(entry);
         await api.resolve(base, entry.conflict_id, candidate.event_id, 'auto-resolve', token);
+        if (merged != null && merged !== topCart.qty) {
+          await api.patch(base, entry.report_id,
+            { description: `${PREFIX}${JSON.stringify({ ...topCart, qty: merged, base: merged, by: 'auto' })}` });
+        }
         done.push({
           id: entry.conflict_id,
-          text: `${FIELD[entry.field] || entry.field}: kept ${show(candidate.value)} from ${REGION[candidate.origin]?.name || candidate.origin}. ${reason}`,
+          text: merged != null
+            ? `Quantity of ${topCart.name}: ${reason}`
+            : `${FIELD[entry.field] || entry.field}: kept ${show(candidate.value)} from ${REGION[candidate.origin]?.name || candidate.origin}. ${reason}`,
         });
       }
       setNotice(done);
