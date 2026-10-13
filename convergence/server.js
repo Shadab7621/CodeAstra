@@ -68,11 +68,28 @@ async function runFetch() {
 }
 
 function send(res, code, type, body) {
-  res.writeHead(code, { "Content-Type": type, "Cache-Control": "no-store" });
+  res.writeHead(code, {
+    "Content-Type": type,
+    "Cache-Control": "no-store",
+    // The dashboard is served from a different local port. The proxy binds to loopback,
+    // and only returns the upstream incident payload, never the configured full URLs.
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Accept, Content-Type",
+  });
   res.end(body);
 }
 
 http.createServer(async (req, res) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Accept, Content-Type",
+      "Cache-Control": "no-store",
+    });
+    return res.end();
+  }
   const url = new URL(req.url, "http://localhost");
   if (url.pathname === "/api/fetch" && req.method === "POST") {
     return send(res, 200, "application/json", JSON.stringify(await runFetch()));

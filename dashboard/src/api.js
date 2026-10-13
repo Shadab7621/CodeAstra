@@ -45,6 +45,7 @@ export const api = {
   syncNow: (b, t) => post(b, '/admin/sync-now', {}, t),
   cluster: (b) => request(b, '/cluster'),
   conflicts: (b) => request(b, '/conflicts'),
+  recovery: (b) => request(b, '/recovery'),
   logs: (b, { region, limit = 100, kind } = {}) => {
     const q = new URLSearchParams({ limit: String(limit) });
     if (region) q.set('region', region);

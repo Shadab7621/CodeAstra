@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import Compare from './components/Compare';
+import Convergence from './components/Convergence';
 import Hero from './components/Hero';
 import Infrastructure from './components/Infrastructure';
 import Overview from './components/Overview';
@@ -13,7 +14,7 @@ import { NODES, environments, loadCloudUrls, loadToken, saveCloudUrls, saveToken
 import { ThemeContext, useTheme } from './hooks';
 import { INFRA } from './infra';
 
-const VIEWS = ['overview', 'infrastructure', 'compare', 'logs'];
+const VIEWS = ['overview', 'infrastructure', 'compare', 'logs', 'convergence'];
 
 // A hash such as #overview, #infrastructure or #compare opens the console directly.
 function fromHash() {
@@ -125,6 +126,7 @@ export default function App() {
                     {view === 'logs' && (
                       <RegionLogs urls={current.engine} meta={meta} region={logRegion} onRegion={setLogRegion} />
                     )}
+                    {view === 'convergence' && <Convergence urls={current.engine} env={env} />}
                     {view === 'overview' && (
                       <Overview
                         engineUrls={current.engine} baselineUrls={current.baseline} meta={meta}
