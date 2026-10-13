@@ -180,11 +180,11 @@ function RegionSyncStatus({ rows }) {
   return (
     <Panel title="Region-wise Sync Status" className="convergence-region-status-panel">
       <div className="convergence-region-status-list">
-        {rows.map(({ id, host, up, total, pending: queued, lastUpdate, hash }) => (
+        {rows.map(({ id, host, up, loading, total, pending: queued, lastUpdate, hash }) => (
           <article className={`convergence-region-status-row ${id}`} key={id}>
             <div className="convergence-region-status-identity">
               <span className="convergence-region-status-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="5" rx="1.5" /><rect x="5" y="14" width="14" height="5" rx="1.5" /><path d="M8 7.5h.01M8 16.5h.01" /></svg></span>
-              <div className="convergence-region-status-name"><strong>{REGION[id].name}</strong><span>{host}</span><small style={up ? undefined : { color: 'var(--bad)' }}><i />{up ? 'Healthy' : 'Unreachable'}</small></div>
+              <div className="convergence-region-status-name"><strong>{REGION[id].name}</strong><span>{host}</span><small style={up || loading ? undefined : { color: 'var(--bad)' }}><i />{up ? 'Healthy' : loading ? 'Connecting' : 'Unreachable'}</small></div>
             </div>
             <div className="convergence-region-status-value"><span>Incidents held</span><strong>{show(total)}</strong></div>
             <div className="convergence-region-status-value"><span>Pending</span><strong>{show(queued)}</strong></div>
@@ -295,6 +295,7 @@ function regionRows(nodes, urls) {
     return {
       id,
       host,
+      loading: !node, // nothing read from this region yet, which is not the same as unreachable
       up: Boolean(status),
       total: Array.isArray(node?.reports) ? held.length : null,
       pending: status ? (status.peers || []).reduce((n, p) => n + (p.pending_out || 0) + (p.pending_in || 0), 0) : null,
